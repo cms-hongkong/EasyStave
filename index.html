@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>輕量級彩虹樂譜</title>
+    <title>卡雅音樂教室彩虹樂譜</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -13,13 +13,14 @@
         <!-- 頂部資訊區 -->
         <header class="top-bar">
             <div class="info-inputs">
-                <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="我的彩虹樂曲">
+                <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="卡雅音樂教室彩虹樂譜">
             </div>
             
             <div class="controls-row">
                 <select id="clef-select">
-                    <option value="treble">🎼 高音譜號</option>
+                    <option value="treble">高音譜號</option>
                     <option value="bass">低音譜號</option>
+                    <option value="grand">大譜表 (高+低音)</option>
                 </select>
                 <select id="time-select">
                     <option value="4/4">4/4 拍</option>
@@ -33,20 +34,31 @@
                 <button id="play-all-btn" class="action-btn">▶ 播放</button>
                 <button id="undo-btn" class="action-btn">↩ 復原</button>
                 <button id="clear-btn" class="action-btn">🗑️ 清除</button>
+                <button id="export-btn" class="action-btn" style="background:#007aff; color:white;">📥 匯出圖片</button>
             </div>
         </header>
 
-        <!-- 工具列：改成 iPad 友善嘅大按鈕 -->
+        <!-- 工具列：加入指法選擇 -->
         <section class="tools-bar">
             <div class="tool-group">
-                <button class="dur-btn" data-dur="w">全音(4拍)</button>
-                <button class="dur-btn" data-dur="hd">附點2分(3拍)</button>
-                <button class="dur-btn" data-dur="h">2分(2拍)</button>
-                <button class="dur-btn active" data-dur="q">4分(1拍)</button>
-                <button class="dur-btn" data-dur="8">8分(半拍)</button>
+                <button class="dur-btn" data-dur="w">全音</button>
+                <button class="dur-btn" data-dur="hd">附點2分</button>
+                <button class="dur-btn" data-dur="h">2分</button>
+                <button class="dur-btn active" data-dur="q">4分</button>
+                <button class="dur-btn" data-dur="8">8分</button>
             </div>
             <div class="tool-group">
                 <button id="rest-btn" class="action-btn" style="background:#ffd6d6;">❌ 休止符: 關</button>
+            </div>
+            <div class="tool-group">
+                <select id="fingering-select" style="background:#e8f4f8; font-weight:bold;">
+                    <option value="none">指法：無</option>
+                    <option value="1">指法：1</option>
+                    <option value="2">指法：2</option>
+                    <option value="3">指法：3</option>
+                    <option value="4">指法：4</option>
+                    <option value="5">指法：5</option>
+                </select>
             </div>
         </section>
 
