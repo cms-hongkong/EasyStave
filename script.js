@@ -19,7 +19,7 @@ document.querySelectorAll('.dur-btn').forEach(btn => {
 document.getElementById('rest-btn').addEventListener('click', (e) => {
     isRestMode = !isRestMode;
     e.target.classList.toggle('active');
-    e.target.innerText = isRestMode ? "✔️ 休止符" : "❌ 休止符";
+    e.target.innerText = isRestMode ? "✔️ 休止" : "❌ 休止";
 });
 
 document.getElementById("toggle-color").addEventListener("click", function() {
@@ -38,19 +38,15 @@ document.getElementById('time-select').addEventListener('change', () => renderSc
 
 function applyModifiers(note, pitches, fingerings, isRest) {
     if (note.getDuration().includes("d")) note.addModifier(new Dot(), 0);
-    
     if (!isRest) {
         pitches.forEach((p, idx) => {
             const pitchName = p.charAt(0).toUpperCase();
-            // 移除咗引致死機嘅 setFont()，恢復使用穩定預設字體
-            const nameAnno = new Annotation(pitchName).setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
+            const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
-            
             if (fingerings[idx] && fingerings[idx] !== 'none') {
-                const fingerAnno = new Annotation(fingerings[idx]).setVerticalJustification(Annotation.VerticalJustify.TOP);
+                const fingerAnno = new Annotation(fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.TOP);
                 note.addModifier(fingerAnno, idx);
             }
-
             if (isColorMode) {
                 const color = colorMap[pitchName.toLowerCase()] || "#000000";
                 note.setKeyStyle(idx, { fillStyle: color, strokeStyle: color });
@@ -59,7 +55,7 @@ function applyModifiers(note, pitches, fingerings, isRest) {
     }
 }
 
-// 核心渲染 (轉用穩定 SVG 引擎)
+// 核心渲染 (轉回極穩定的 Canvas 引擎)
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const isGrand = clef === "grand";
@@ -99,7 +95,7 @@ function renderScore() {
         pages.push(lines.slice(i, i + maxLinesPerPage));
     }
 
-    // 終極大比例 1.7 倍 (令音符夠晒大粒)
+    // 終極大比例 1.7 倍
     const SCALE = 1.7; 
     const measureWidths = [280, 220, 220, 220]; 
     const lineSpacing = isGrand ? 250 : 160;
@@ -110,16 +106,27 @@ function renderScore() {
     pages.forEach((pageLines) => {
         const logicalWidth = 960;
         const logicalHeight = Math.max(200, pageLines.length * lineSpacing + topMargin + 40);
+        const actualWidth = logicalWidth * SCALE;
+        const actualHeight = logicalHeight * SCALE;
 
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         scoreWrapper.appendChild(containerDiv);
 
-        // 使用 SVG 避免 iOS Canvas 限制死機
-        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
-        renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
+        // 使用 Canvas，完全唔會死機
+        const renderer = new Renderer(containerDiv, Renderer.Backends.CANVAS);
+        renderer.resize(actualWidth, actualHeight);
         const context = renderer.getContext();
         context.scale(SCALE, SCALE);
+
+        // 為畫布強制填上白底，確保匯出時唔會變透明黑底
+        const canvasElement = containerDiv.querySelector("canvas");
+        const ctx2d = canvasElement.getContext("2d");
+        ctx2d.save();
+        ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+        ctx2d.fillStyle = "#ffffff";
+        ctx2d.fillRect(0, 0, actualWidth, actualHeight);
+        ctx2d.restore();
 
         pageLines.forEach((lineMeasures, lineIndex) => {
             let startY = lineIndex * lineSpacing + topMargin;
@@ -308,54 +315,45 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     });
 });
 
-// 多頁 SVG 轉換匯出為單一長圖
+// 極速匯出法：直接截取畫布
 document.getElementById('export-btn').addEventListener('click', () => {
     if (scoreData.length === 0) { alert("請先輸入音符！"); return; }
     
-    const svgs = document.querySelectorAll(".score-page svg");
-    if (svgs.length === 0) return;
+    // 直接搵網頁上面嘅 Canvas
+    const canvases = document.querySelectorAll("#score-wrapper canvas");
+    if (canvases.length === 0) return;
 
     let totalHeight = 0;
     let maxWidth = 0;
-    let images = [];
-    let loadedCount = 0;
-    const title = document.getElementById("song-title").value;
 
-    svgs.forEach((svg) => {
-        const xml = new XMLSerializer().serializeToString(svg);
-        const svg64 = btoa(unescape(encodeURIComponent(xml)));
-        const img = new Image();
-        img.onload = () => {
-            loadedCount++;
-            if (loadedCount === svgs.length) {
-                const canvas = document.createElement("canvas");
-                canvas.width = maxWidth + 60; 
-                canvas.height = totalHeight + 120; 
-                const ctx = canvas.getContext("2d");
-                
-                ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                ctx.fillStyle = "#000000";
-                ctx.textAlign = "center";
-                ctx.font = "bold 34px sans-serif";
-                ctx.fillText(title, canvas.width / 2, 60);
-
-                let currentY = 90;
-                images.forEach(obj => {
-                    ctx.drawImage(obj.img, 30, currentY, obj.width, obj.height);
-                    currentY += obj.height;
-                });
-
-                document.getElementById('export-image-result').src = canvas.toDataURL("image/png");
-                document.getElementById('export-modal').style.display = 'flex';
-            }
-        };
-        img.src = 'data:image/svg+xml;base64,' + svg64;
-        images.push({ img: img, width: svg.clientWidth, height: svg.clientHeight });
-        totalHeight += svg.clientHeight;
-        if (svg.clientWidth > maxWidth) maxWidth = svg.clientWidth;
+    canvases.forEach(c => {
+        totalHeight += c.height;
+        if (c.width > maxWidth) maxWidth = c.width;
     });
+
+    // 建立一張大畫布，將所有分頁合而為一
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = maxWidth + 60; 
+    finalCanvas.height = totalHeight + 120; 
+    const ctx = finalCanvas.getContext("2d");
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+    
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+    ctx.font = "bold 44px sans-serif";
+    const title = document.getElementById("song-title").value;
+    ctx.fillText(title, finalCanvas.width / 2, 70);
+
+    let currentY = 100;
+    canvases.forEach(c => {
+        ctx.drawImage(c, 30, currentY);
+        currentY += c.height;
+    });
+
+    document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
+    document.getElementById('export-modal').style.display = 'flex';
 });
 
 document.getElementById('close-modal-btn').addEventListener('click', () => {
