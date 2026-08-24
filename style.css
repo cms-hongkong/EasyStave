@@ -11,9 +11,9 @@ body { background-color: #f5f5f7; color: #333; user-select: none; -webkit-user-s
 .controls-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
 select, button { padding: 10px 15px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 15px; cursor: pointer; outline: none; }
 .action-btn { background: #f0f0f0; font-weight: bold; }
-.highlight { background: #007aff; color: white; border: none; }
+.highlight { background: #ffcc00; border: none; }
 
-/* 次級工具列 (大按鈕化) */
+/* 次級工具列 */
 .tools-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .tool-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .dur-btn { background: #f0f0f0; border: 1px solid #bbb; }
