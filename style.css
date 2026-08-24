@@ -20,9 +20,9 @@ select, button { padding: 10px 15px; border: 1px solid #ccc; border-radius: 8px;
 .dur-btn.active { background: #ffcc00; border-color: #e6b800; font-weight: bold; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
 #rest-btn.active { background: #ff4d4d !important; color: white; }
 
-/* 樂譜顯示區 (4 Bars per line 專用設定) */
+/* 樂譜顯示區 */
 .score-container { flex-grow: 1; overflow-x: auto; overflow-y: auto; padding: 20px; background: #ffffff; display: flex; justify-content: flex-start; align-items: flex-start; }
-#score-canvas { min-width: 1000px; background: #fff; border-radius: 8px; } /* 固定闊度，確保4小節平排 */
+#score-canvas { min-width: 1000px; background: #fff; border-radius: 8px; }
 
 /* 底部鍵盤 */
 .keyboard-bar { padding: 15px 10px; background: #fff; border-top: 1px solid #ddd; display: flex; justify-content: center; gap: 8px; overflow-x: auto; }
