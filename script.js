@@ -55,7 +55,6 @@ function applyModifiers(note, pitches, fingerings, isRest) {
     }
 }
 
-// 核心渲染 (轉回極穩定的 Canvas 引擎)
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const isGrand = clef === "grand";
@@ -95,16 +94,16 @@ function renderScore() {
         pages.push(lines.slice(i, i + maxLinesPerPage));
     }
 
-    // 終極大比例 1.7 倍
-    const SCALE = 1.7; 
-    const measureWidths = [280, 220, 220, 220]; 
+    // 將放大比例設定為 1.45 倍 (確保 iPad 穩定不白屏)
+    const SCALE = 1.45; 
+    const measureWidths = [280, 220, 220, 220]; // 第一格闊啲，留位畀譜號
     const lineSpacing = isGrand ? 250 : 160;
     const topMargin = 40;
 
     scoreWrapper.innerHTML = "";
 
     pages.forEach((pageLines) => {
-        const logicalWidth = 960;
+        const logicalWidth = 980;
         const logicalHeight = Math.max(200, pageLines.length * lineSpacing + topMargin + 40);
         const actualWidth = logicalWidth * SCALE;
         const actualHeight = logicalHeight * SCALE;
@@ -113,13 +112,11 @@ function renderScore() {
         containerDiv.className = "score-page";
         scoreWrapper.appendChild(containerDiv);
 
-        // 使用 Canvas，完全唔會死機
         const renderer = new Renderer(containerDiv, Renderer.Backends.CANVAS);
         renderer.resize(actualWidth, actualHeight);
         const context = renderer.getContext();
         context.scale(SCALE, SCALE);
 
-        // 為畫布強制填上白底，確保匯出時唔會變透明黑底
         const canvasElement = containerDiv.querySelector("canvas");
         const ctx2d = canvasElement.getContext("2d");
         ctx2d.save();
@@ -130,7 +127,7 @@ function renderScore() {
 
         pageLines.forEach((lineMeasures, lineIndex) => {
             let startY = lineIndex * lineSpacing + topMargin;
-            let lineX = 10;
+            let lineX = 20; // 左邊留少少白邊
             
             lineMeasures.forEach((measureData, mIndex) => {
                 let mW = measureWidths[mIndex] || 220;
@@ -315,11 +312,9 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     });
 });
 
-// 極速匯出法：直接截取畫布
 document.getElementById('export-btn').addEventListener('click', () => {
     if (scoreData.length === 0) { alert("請先輸入音符！"); return; }
     
-    // 直接搵網頁上面嘅 Canvas
     const canvases = document.querySelectorAll("#score-wrapper canvas");
     if (canvases.length === 0) return;
 
@@ -331,7 +326,6 @@ document.getElementById('export-btn').addEventListener('click', () => {
         if (c.width > maxWidth) maxWidth = c.width;
     });
 
-    // 建立一張大畫布，將所有分頁合而為一
     const finalCanvas = document.createElement("canvas");
     finalCanvas.width = maxWidth + 60; 
     finalCanvas.height = totalHeight + 120; 
@@ -360,4 +354,5 @@ document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('export-modal').style.display = 'none';
 });
 
+// 啟動即畫出預設譜表
 renderScore();
