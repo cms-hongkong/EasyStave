@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>輕量級彩虹樂譜</title>
     <link rel="stylesheet" href="style.css">
-    <!-- 引入 VexFlow, Tone.js -->
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
@@ -15,7 +14,6 @@
         <header class="top-bar">
             <div class="info-inputs">
                 <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="我的彩虹樂曲">
-                <input type="text" id="song-composer" placeholder="作曲/編曲者..." value="">
             </div>
             
             <div class="controls-row">
@@ -28,34 +26,27 @@
                     <option value="3/4">3/4 拍</option>
                     <option value="2/4">2/4 拍</option>
                 </select>
-                <button id="toggle-color" class="active">🎨 彩色模式</button>
+                <button id="toggle-color" class="action-btn highlight">🎨 彩色模式：開</button>
             </div>
 
             <div class="controls-row">
                 <button id="play-all-btn" class="action-btn">▶ 播放</button>
                 <button id="undo-btn" class="action-btn">↩ 復原</button>
                 <button id="clear-btn" class="action-btn">🗑️ 清除</button>
-                <button id="export-btn" class="action-btn highlight">📥 匯出圖片</button>
             </div>
         </header>
 
-        <!-- 工具列：音符長度與特殊符號 -->
+        <!-- 工具列：改成 iPad 友善嘅大按鈕 -->
         <section class="tools-bar">
-            <div class="tool-group" id="duration-group">
-                <label><input type="radio" name="duration" value="w"> 全音</label>
-                <label><input type="radio" name="duration" value="hd"> 附點2分</label>
-                <label><input type="radio" name="duration" value="h"> 2分</label>
-                <label><input type="radio" name="duration" value="q" checked> 4分</label>
-                <label><input type="radio" name="duration" value="8"> 8分</label>
+            <div class="tool-group">
+                <button class="dur-btn" data-dur="w">全音(4拍)</button>
+                <button class="dur-btn" data-dur="hd">附點2分(3拍)</button>
+                <button class="dur-btn" data-dur="h">2分(2拍)</button>
+                <button class="dur-btn active" data-dur="q">4分(1拍)</button>
+                <button class="dur-btn" data-dur="8">8分(半拍)</button>
             </div>
             <div class="tool-group">
-                <label><input type="checkbox" id="is-rest"> 休止符</label>
-            </div>
-            <div class="tool-group" id="accidental-group">
-                <label><input type="radio" name="accidental" value="" checked> 無</label>
-                <label><input type="radio" name="accidental" value="#"> ♯</label>
-                <label><input type="radio" name="accidental" value="b"> ♭</label>
-                <label><input type="radio" name="accidental" value="n"> ♮</label>
+                <button id="rest-btn" class="action-btn" style="background:#ffd6d6;">❌ 休止符: 關</button>
             </div>
         </section>
 
@@ -73,7 +64,7 @@
             <button class="note-btn" style="background:#cce6ff; color:#0066cc;" data-note="g/4">G</button>
             <button class="note-btn" style="background:#ccccff; color:#0000cc;" data-note="a/4">A</button>
             <button class="note-btn" style="background:#e6ccff; color:#6600cc;" data-note="b/4">B</button>
-            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">C</button>
+            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高音C</button>
         </footer>
     </div>
     <script src="script.js"></script>
