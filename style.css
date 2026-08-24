@@ -1,30 +1,211 @@
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-body { background-color: #f5f5f7; color: #333; user-select: none; -webkit-user-select: none; }
+const { Renderer, Stave, StaveNote, Formatter, Dot, BarNote, Barline, Annotation, StaveConnector } = Vex.Flow;
 
-.app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+let scoreData = [];
+const colorMap = { "c": "#FF0000", "d": "#FFA500", "e": "#E6E600", "f": "#00FF00", "g": "#ADD8E6", "a": "#0000FF", "b": "#800080" };
+const div = document.getElementById("score-canvas");
 
-/* 頂部區域 */
-.top-bar { background: #fff; padding: 15px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.info-inputs { display: flex; flex-direction: column; align-items: center; width: 100%; }
-#song-title { font-size: 24px; font-weight: bold; text-align: center; border: none; outline: none; background: transparent; width: 90%; }
+let isColorMode = true;
+let selectedDuration = "q"; 
+let isRestMode = false;
 
-.controls-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
-select, button { padding: 10px 15px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 15px; cursor: pointer; outline: none; }
-.action-btn { background: #f0f0f0; font-weight: bold; }
-.highlight { background: #ffcc00; border: none; }
+// 綁定 UI 按鈕
+document.querySelectorAll('.dur-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        selectedDuration = e.target.getAttribute('data-dur');
+    });
+});
 
-/* 次級工具列 */
-.tools-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.tool-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.dur-btn { background: #f0f0f0; border: 1px solid #bbb; }
-.dur-btn.active { background: #ffcc00; border-color: #e6b800; font-weight: bold; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
-#rest-btn.active { background: #ff4d4d !important; color: white; }
+document.getElementById('rest-btn').addEventListener('click', (e) => {
+    isRestMode = !isRestMode;
+    e.target.classList.toggle('active');
+    e.target.innerText = isRestMode ? "✔️ 休止符: 開" : "❌ 休止符: 關";
+});
 
-/* 樂譜顯示區 */
-.score-container { flex-grow: 1; overflow-x: auto; overflow-y: auto; padding: 20px; background: #ffffff; display: flex; justify-content: flex-start; align-items: flex-start; }
-#score-canvas { min-width: max-content; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+document.getElementById("toggle-color").addEventListener("click", function() {
+    isColorMode = !isColorMode;
+    this.innerText = isColorMode ? "🎨 彩色模式：開" : "🎨 彩色模式：關";
+    this.classList.toggle("highlight");
+    renderScore();
+});
 
-/* 底部鍵盤 */
-.keyboard-bar { padding: 15px 10px; background: #fff; border-top: 1px solid #ddd; display: flex; justify-content: center; gap: 8px; overflow-x: auto; }
-.note-btn { flex: 1; min-width: 45px; max-width: 70px; height: 60px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; touch-action: manipulation; }
-.note-btn:active { transform: scale(0.95); }
+// 為音符加入音名與指法
+function applyModifiers(note, data) {
+    if (data.duration === "hd") note.addModifier(new Dot());
+    if (!data.isRest) {
+        const pitchName = data.pitch.charAt(0).toUpperCase();
+        
+        // 加入音名 (底部)
+        const nameAnno = new Annotation(pitchName).setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
+        note.addModifier(nameAnno);
+        
+        // 加入指法 (頂部)
+        if (data.fingering && data.fingering !== 'none') {
+            const fingerAnno = new Annotation(data.fingering).setVerticalJustification(Annotation.VerticalJustify.TOP);
+            note.addModifier(fingerAnno);
+        }
+
+        if (isColorMode) {
+            const color = colorMap[pitchName.toLowerCase()] || "#000000";
+            note.setStyle({ fillStyle: color, strokeStyle: color });
+        }
+    }
+}
+
+// 渲染樂譜
+function renderScore() {
+    div.innerHTML = "";
+    const clef = document.getElementById("clef-select").value;
+    const isGrand = clef === "grand";
+    const timeSig = document.getElementById("time-select").value;
+    const timeBeats = parseInt(timeSig.split('/')[0]); 
+
+    // 收緊畫布闊度，避免結尾出現大量空白
+    const canvasWidth = scoreData.length === 0 ? 300 : Math.max(300, scoreData.length * 60 + 100);
+    const canvasHeight = isGrand ? 280 : 180;
+    
+    const renderer = new Renderer(div, Renderer.Backends.SVG);
+    renderer.resize(canvasWidth, canvasHeight);
+    const context = renderer.getContext();
+
+    let stave, staveBass;
+    if (isGrand) {
+        stave = new Stave(10, 20, canvasWidth - 20).addClef("treble").addTimeSignature(timeSig);
+        staveBass = new Stave(10, 130, canvasWidth - 20).addClef("bass").addTimeSignature(timeSig);
+        stave.setContext(context).draw();
+        staveBass.setContext(context).draw();
+        
+        // 畫大譜表連結線
+        new StaveConnector(stave, staveBass).setType(StaveConnector.type.BRACE).setContext(context).draw();
+        new StaveConnector(stave, staveBass).setType(StaveConnector.type.SINGLE_LEFT).setContext(context).draw();
+    } else {
+        stave = new Stave(10, 40, canvasWidth - 20).addClef(clef).addTimeSignature(timeSig);
+        stave.setContext(context).draw();
+    }
+
+    if (scoreData.length === 0) return;
+
+    let vexNotes = [];
+    let bassVexNotes = [];
+    let currentBeats = 0;
+
+    scoreData.forEach((data) => {
+        let vexDur = data.duration === "hd" ? "h" : data.duration;
+        
+        if (isGrand) {
+            // 大譜表邏輯：判斷音高放邊行，另一行放隱形休止符
+            let octave = parseInt(data.pitch.split('/')[1]);
+            let isTreble = octave >= 4;
+            
+            let tNote = new StaveNote({ keys: isTreble && !data.isRest ? [data.pitch] : ["b/4"], duration: vexDur + (isTreble && !data.isRest ? "" : "r"), clef: "treble", auto_stem: true });
+            let bNote = new StaveNote({ keys: !isTreble && !data.isRest ? [data.pitch] : ["d/3"], duration: vexDur + (!isTreble && !data.isRest ? "" : "r"), clef: "bass", auto_stem: true });
+            
+            if (isTreble) {
+                applyModifiers(tNote, data);
+                bNote.setStyle({fillStyle: "transparent", strokeStyle: "transparent"}); // 隱藏另一行休止符
+            } else {
+                applyModifiers(bNote, data);
+                tNote.setStyle({fillStyle: "transparent", strokeStyle: "transparent"});
+            }
+            vexNotes.push(tNote);
+            bassVexNotes.push(bNote);
+        } else {
+            // 單行譜邏輯
+            let keys = data.isRest ? [(clef === "bass" ? "d/3" : "b/4")] : [data.pitch];
+            let note = new StaveNote({ keys: keys, duration: vexDur + (data.isRest ? "r" : ""), clef: clef, auto_stem: true });
+            applyModifiers(note, data);
+            vexNotes.push(note);
+        }
+
+        let beatValue = data.duration === 'w' ? 4 : data.duration === 'hd' ? 3 : data.duration === 'h' ? 2 : data.duration === 'q' ? 1 : 0.5;
+        currentBeats = Math.round((currentBeats + beatValue) * 100) / 100;
+        
+        if (currentBeats >= timeBeats) {
+            vexNotes.push(new BarNote(Barline.type.SINGLE));
+            if (isGrand) bassVexNotes.push(new BarNote(Barline.type.SINGLE));
+            currentBeats = 0;
+        }
+    });
+
+    Formatter.FormatAndDraw(context, stave, vexNotes);
+    if (isGrand) Formatter.FormatAndDraw(context, staveBass, bassVexNotes);
+}
+
+// 輸入音符
+document.querySelectorAll('.note-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        let basePitch = e.target.getAttribute('data-note'); 
+        const clef = document.getElementById("clef-select").value;
+        const fingering = document.getElementById('fingering-select').value;
+        
+        // 若單選低音譜號，自動降八度方便輸入
+        if (clef === "bass") {
+            const parts = basePitch.split('/');
+            basePitch = `${parts[0]}/${parseInt(parts[1]) - 2}`;
+        }
+
+        scoreData.push({ pitch: basePitch, duration: selectedDuration, isRest: isRestMode, fingering: fingering });
+        renderScore();
+
+        if (!isRestMode) {
+            await Tone.start();
+            const synth = new Tone.Synth({ volume: 15 }).toDestination();
+            synth.triggerAttackRelease(basePitch.replace('/', '').toUpperCase(), "8n");
+        }
+    });
+});
+
+document.getElementById('clef-select').addEventListener('change', renderScore);
+document.getElementById('time-select').addEventListener('change', renderScore);
+document.getElementById('undo-btn').addEventListener('click', () => { scoreData.pop(); renderScore(); });
+document.getElementById('clear-btn').addEventListener('click', () => { scoreData = []; renderScore(); });
+
+// 播放全曲
+document.getElementById('play-all-btn').addEventListener('click', async () => {
+    await Tone.start();
+    const synth = new Tone.Synth({ volume: 15 }).toDestination();
+    let now = Tone.now();
+    scoreData.forEach(data => {
+        let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "q" ? "4n" : "8n";
+        let addTime = data.duration === "w" ? 2 : data.duration === "hd" ? 1.5 : data.duration === "h" ? 1 : data.duration === "8" ? 0.25 : 0.5;
+        if (!data.isRest) synth.triggerAttackRelease(data.pitch.replace('/', '').toUpperCase(), toneDur, now);
+        now += addTime;
+    });
+});
+
+// 匯出圖片為 PNG
+document.getElementById('export-btn').addEventListener('click', () => {
+    const svgElement = document.querySelector("#score-canvas svg");
+    if (!svgElement) { alert("沒有樂譜可以匯出！"); return; }
+    
+    const title = document.getElementById("song-title").value;
+    const xml = new XMLSerializer().serializeToString(svgElement);
+    const svg64 = btoa(unescape(encodeURIComponent(xml)));
+    const img = new Image();
+    
+    img.onload = function() {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width + 60;
+        canvas.height = img.height + 100; // 預留標題空間
+        const ctx = canvas.getContext("2d");
+        
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#000000";
+        ctx.textAlign = "center";
+        ctx.font = "bold 28px sans-serif";
+        ctx.fillText(title, canvas.width / 2, 50);
+
+        ctx.drawImage(img, 30, 80);
+
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `${title}.png`;
+        a.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + svg64;
+});
+
+renderScore();
