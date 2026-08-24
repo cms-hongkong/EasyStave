@@ -5,25 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>輕量級彩虹樂譜</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 引入 VexFlow, Tone.js -->
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body>
     <div class="app-container">
+        <!-- 頂部資訊區 -->
         <header class="top-bar">
-            <input type="text" class="title-input" placeholder="點擊輸入歌名..." value="我的第一首彩虹樂曲">
-            <div class="controls">
-                <button id="play-btn">▶ 播放全曲</button>
-                <button id="clear-btn">🗑️ 清除</button>
+            <div class="info-inputs">
+                <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="我的彩虹樂曲">
+                <input type="text" id="song-composer" placeholder="作曲/編曲者..." value="">
+            </div>
+            
+            <div class="controls-row">
+                <select id="clef-select">
+                    <option value="treble">🎼 高音譜號</option>
+                    <option value="bass">低音譜號</option>
+                </select>
+                <select id="time-select">
+                    <option value="4/4">4/4 拍</option>
+                    <option value="3/4">3/4 拍</option>
+                    <option value="2/4">2/4 拍</option>
+                </select>
+                <button id="toggle-color" class="active">🎨 彩色模式</button>
+            </div>
+
+            <div class="controls-row">
+                <button id="play-all-btn" class="action-btn">▶ 播放</button>
+                <button id="undo-btn" class="action-btn">↩ 復原</button>
+                <button id="clear-btn" class="action-btn">🗑️ 清除</button>
+                <button id="export-btn" class="action-btn highlight">📥 匯出圖片</button>
             </div>
         </header>
 
-        <main class="score-container">
+        <!-- 工具列：音符長度與特殊符號 -->
+        <section class="tools-bar">
+            <div class="tool-group" id="duration-group">
+                <label><input type="radio" name="duration" value="w"> 全音</label>
+                <label><input type="radio" name="duration" value="hd"> 附點2分</label>
+                <label><input type="radio" name="duration" value="h"> 2分</label>
+                <label><input type="radio" name="duration" value="q" checked> 4分</label>
+                <label><input type="radio" name="duration" value="8"> 8分</label>
+            </div>
+            <div class="tool-group">
+                <label><input type="checkbox" id="is-rest"> 休止符</label>
+            </div>
+            <div class="tool-group" id="accidental-group">
+                <label><input type="radio" name="accidental" value="" checked> 無</label>
+                <label><input type="radio" name="accidental" value="#"> ♯</label>
+                <label><input type="radio" name="accidental" value="b"> ♭</label>
+                <label><input type="radio" name="accidental" value="n"> ♮</label>
+            </div>
+        </section>
+
+        <!-- 樂譜顯示區 -->
+        <main class="score-container" id="score-wrapper">
             <div id="score-canvas"></div>
         </main>
 
-        <!-- 底部工具列：加入齊全嘅 7 個音符按鈕 -->
-        <footer class="toolbar">
+        <!-- 底部鋼琴鍵盤輸入區 -->
+        <footer class="keyboard-bar">
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/4">C</button>
             <button class="note-btn" style="background:#ffe6cc; color:#cc6600;" data-note="d/4">D</button>
             <button class="note-btn" style="background:#ffffcc; color:#cccc00;" data-note="e/4">E</button>
@@ -31,7 +73,7 @@
             <button class="note-btn" style="background:#cce6ff; color:#0066cc;" data-note="g/4">G</button>
             <button class="note-btn" style="background:#ccccff; color:#0000cc;" data-note="a/4">A</button>
             <button class="note-btn" style="background:#e6ccff; color:#6600cc;" data-note="b/4">B</button>
-            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高音 C</button>
+            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">C</button>
         </footer>
     </div>
     <script src="script.js"></script>
