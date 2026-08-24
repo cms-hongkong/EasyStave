@@ -27,7 +27,13 @@
                     <option value="3/4">3/4 拍</option>
                     <option value="2/4">2/4 拍</option>
                 </select>
-                <button id="toggle-color" class="action-btn highlight">🎨 彩色模式：開</button>
+                <select id="lines-per-page">
+                    <option value="3">每頁 3 行</option>
+                    <option value="4">每頁 4 行</option>
+                    <option value="5" selected>每頁 5 行</option>
+                    <option value="6">每頁 6 行</option>
+                </select>
+                <button id="toggle-color" class="action-btn highlight">🎨 彩色：開</button>
             </div>
 
             <div class="controls-row">
@@ -48,9 +54,11 @@
                 <button class="dur-btn" data-dur="8">8分</button>
             </div>
             <div class="tool-group">
-                <button id="rest-btn" class="action-btn" style="background:#ffd6d6;">❌ 休止符: 關</button>
+                <button id="rest-btn" class="action-btn" style="background:#ffd6d6;">❌ 休止符</button>
             </div>
-            <div class="tool-group">
+            
+            <!-- 新增：指法、音域、疊加和弦 -->
+            <div class="tool-group row-wrap">
                 <select id="fingering-select" style="background:#e8f4f8; font-weight:bold;">
                     <option value="none">指法：無</option>
                     <option value="1">指法：1</option>
@@ -59,23 +67,30 @@
                     <option value="4">指法：4</option>
                     <option value="5">指法：5</option>
                 </select>
+                <select id="octave-select" style="background:#f3e5f5; font-weight:bold;">
+                    <option value="1">音域：高八度 (+1)</option>
+                    <option value="0" selected>音域：標準 (預設)</option>
+                    <option value="-1">音域：低八度 (-1)</option>
+                    <option value="-2">音域：低兩八度 (-2)</option>
+                </select>
+                <label class="checkbox-label" style="background:#d4edda; border:1px solid #c3e6cb; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">
+                    <input type="checkbox" id="chord-mode"> ➕ 疊加於上一音 (雙手/和弦)
+                </label>
             </div>
-            
-            <!-- 大譜表專用輸入位置 (預設隱藏) -->
+
+            <!-- 大譜表專用輸入位置 -->
             <div class="tool-group" id="grand-staff-target" style="display:none; background:#fff3cd; border:1px solid #ffe69c;">
-                <span style="font-size:14px; font-weight:bold; margin-left:5px;">大譜表輸入至：</span>
+                <span style="font-size:14px; font-weight:bold; margin-left:5px;">大譜表寫入至：</span>
                 <select id="staff-target-select" style="background:transparent; font-weight:bold; border:none; outline:none;">
                     <option value="auto">自動分配</option>
-                    <option value="treble">🎼 高音譜表</option>
-                    <option value="bass">低音譜表</option>
+                    <option value="treble">高音譜表 (右手)</option>
+                    <option value="bass">低音譜表 (左手)</option>
                 </select>
             </div>
         </section>
 
-        <!-- 樂譜顯示區 -->
-        <main class="score-container" id="score-wrapper">
-            <div id="score-canvas"></div>
-        </main>
+        <!-- 樂譜顯示區 (分頁系統會喺度生成多個 div) -->
+        <main class="score-container" id="score-wrapper"></main>
 
         <!-- 底部鋼琴鍵盤輸入區 -->
         <footer class="keyboard-bar">
@@ -86,7 +101,7 @@
             <button class="note-btn" style="background:#cce6ff; color:#0066cc;" data-note="g/4">G</button>
             <button class="note-btn" style="background:#ccccff; color:#0000cc;" data-note="a/4">A</button>
             <button class="note-btn" style="background:#e6ccff; color:#6600cc;" data-note="b/4">B</button>
-            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高音C</button>
+            <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高C</button>
         </footer>
     </div>
 
@@ -99,6 +114,9 @@
             <button id="close-modal-btn" class="action-btn" style="padding:12px 30px; background:#ff4d4d; color:white; border:none; font-size:18px; border-radius:8px;">關閉並返回</button>
         </div>
     </div>
+
+    <!-- 隱藏用作生成匯出全圖嘅區域 -->
+    <div id="hidden-export-container" style="display:none;"></div>
 
     <script src="script.js"></script>
 </body>
