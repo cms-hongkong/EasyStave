@@ -1,1 +1,41 @@
 
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <!-- 手機防縮放，極重要 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>輕量級彩虹樂譜</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- 引入 VexFlow (畫譜) -->
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <!-- 引入 Tone.js (發聲) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 頂部控制列 -->
+        <header class="top-bar">
+            <input type="text" class="title-input" placeholder="點擊輸入歌名..." value="我的第一首彩虹樂曲">
+            <div class="controls">
+                <button id="play-btn">▶ 播放</button>
+                <button id="clear-btn">清除</button>
+            </div>
+        </header>
+
+        <!-- 樂譜顯示區 (支援橫向滑動) -->
+        <main class="score-container">
+            <div id="score-canvas"></div>
+        </main>
+
+        <!-- 底部工具列 (示範用) -->
+        <footer class="toolbar">
+            <p>音符測試：</p>
+            <button class="note-btn" data-note="c/4">C (紅)</button>
+            <button class="note-btn" data-note="d/4">D (橙)</button>
+            <button class="note-btn" data-note="e/4">E (黃)</button>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
