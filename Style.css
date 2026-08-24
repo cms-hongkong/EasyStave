@@ -1,0 +1,86 @@
+/* 全局設定與簡約白主題 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background-color: #ffffff;
+    color: #333333;
+    /* 防止手機長按選取文字 */
+    user-select: none; 
+    -webkit-user-select: none;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* 頂部控制列 */
+.top-bar {
+    padding: 15px;
+    border-bottom: 1px solid #eeeeee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.title-input {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    border: none;
+    outline: none;
+    width: 100%;
+    max-width: 300px;
+}
+
+.controls button {
+    padding: 8px 16px;
+    margin: 0 5px;
+    border: 1px solid #dddddd;
+    background: #f8f8f8;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* 樂譜顯示區 (重點：支援橫向滑動) */
+.score-container {
+    flex-grow: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 20px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+/* 確保 SVG 畫布唔會被壓縮 */
+#score-canvas {
+    min-width: max-content; 
+}
+
+/* 底部工具列 */
+.toolbar {
+    padding: 15px;
+    background-color: #fafafa;
+    border-top: 1px solid #eeeeee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.note-btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background: #e0e0e0;
+    font-weight: bold;
+}
