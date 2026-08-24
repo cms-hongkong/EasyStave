@@ -5,22 +5,20 @@ body { background-color: #f5f5f7; color: #333; user-select: none; -webkit-user-s
 
 /* 頂部區域 */
 .top-bar { background: #fff; padding: 15px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.info-inputs { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
+.info-inputs { display: flex; flex-direction: column; align-items: center; width: 100%; }
 #song-title { font-size: 24px; font-weight: bold; text-align: center; border: none; outline: none; background: transparent; width: 90%; }
-#song-composer { font-size: 14px; text-align: center; border: none; outline: none; background: transparent; color: #666; width: 90%; }
 
 .controls-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
-select, button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; outline: none; }
-button:active { background: #eee; }
-.action-btn { background: #f0f0f0; font-weight: 500; }
+select, button { padding: 10px 15px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 15px; cursor: pointer; outline: none; }
+.action-btn { background: #f0f0f0; font-weight: bold; }
 .highlight { background: #007aff; color: white; border: none; }
-.highlight:active { background: #005bb5; }
-#toggle-color.active { background: #ffeb3b; border-color: #fbc02d; font-weight: bold; }
 
-/* 次級工具列 (音符長度等) */
-.tools-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
-.tool-group { display: flex; gap: 8px; align-items: center; background: #f9f9f9; padding: 5px 10px; border-radius: 8px; font-size: 14px; }
-.tool-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+/* 次級工具列 (大按鈕化) */
+.tools-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tool-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.dur-btn { background: #f0f0f0; border: 1px solid #bbb; }
+.dur-btn.active { background: #ffcc00; border-color: #e6b800; font-weight: bold; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
+#rest-btn.active { background: #ff4d4d !important; color: white; }
 
 /* 樂譜顯示區 */
 .score-container { flex-grow: 1; overflow-x: auto; overflow-y: auto; padding: 20px; background: #ffffff; display: flex; justify-content: flex-start; align-items: flex-start; }
