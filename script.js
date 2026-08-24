@@ -8,7 +8,7 @@ let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
 
-// UI 按鈕綁定
+// 綁定按鈕
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -27,27 +27,28 @@ document.getElementById("toggle-color").addEventListener("click", function() {
     isColorMode = !isColorMode;
     this.innerText = isColorMode ? "🎨 彩色模式：開" : "🎨 彩色模式：關";
     this.classList.toggle("highlight");
-    renderScore(); // 重新渲染
+    renderScore();
 });
 
-// 加入音名與指法
+// 當選擇譜號改變時，顯示或隱藏「大譜表目標」設定
+document.getElementById('clef-select').addEventListener('change', (e) => {
+    const isGrand = e.target.value === 'grand';
+    document.getElementById('grand-staff-target').style.display = isGrand ? 'flex' : 'none';
+    renderScore();
+});
+
+// 處理音名與指法顯示
 function applyModifiers(note, data) {
     if (data.duration === "hd") note.addModifier(new Dot(), 0);
     
     if (!data.isRest) {
         const pitchName = data.pitch.charAt(0).toUpperCase();
         
-        // 確保音名喺底部顯示
-        const nameAnno = new Annotation(pitchName)
-            .setFont("sans-serif", 14, "bold")
-            .setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
+        const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
         note.addModifier(nameAnno, 0);
         
-        // 確保指法喺頂部顯示
         if (data.fingering && data.fingering !== 'none') {
-            const fingerAnno = new Annotation(data.fingering)
-                .setFont("sans-serif", 14, "bold")
-                .setVerticalJustification(Annotation.VerticalJustify.TOP);
+            const fingerAnno = new Annotation(data.fingering).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.TOP);
             note.addModifier(fingerAnno, 0);
         }
 
@@ -58,48 +59,52 @@ function applyModifiers(note, data) {
     }
 }
 
-// 核心渲染引擎 (支援直接畫面顯示 或 Canvas高清匯出)
+// 核心渲染引擎
 function renderScore(isExport = false) {
     const clef = document.getElementById("clef-select").value;
     const isGrand = clef === "grand";
     const timeSig = document.getElementById("time-select").value;
     const timeBeats = parseInt(timeSig.split('/')[0]); 
 
-    // 1. 將音符嚴格分拆為「小節 (Measures)」
+    // 1. 精確計算節拍，完美分拆小節 (修正浮點數誤差)
     let measures = [];
     let currentMeasure = [];
     let currentBeats = 0;
 
     scoreData.forEach((data) => {
         let beatValue = data.duration === 'w' ? 4 : data.duration === 'hd' ? 3 : data.duration === 'h' ? 2 : data.duration === 'q' ? 1 : 0.5;
-        if (currentBeats + beatValue > timeBeats) {
+        
+        // 如果加上呢個音符會爆滿，先推出現有小節
+        if (currentBeats + beatValue > timeBeats + 0.001) {
             measures.push(currentMeasure);
             currentMeasure = [];
             currentBeats = 0;
         }
+        
         currentMeasure.push(data);
         currentBeats += beatValue;
-        if (Math.abs(currentBeats - timeBeats) < 0.01) {
+        
+        // 如果剛好滿，立刻截斷為一個小節
+        if (currentBeats >= timeBeats - 0.001) {
             measures.push(currentMeasure);
             currentMeasure = [];
             currentBeats = 0;
         }
     });
+    
     if (currentMeasure.length > 0) measures.push(currentMeasure);
-    // 如果完全冇音符，只係預覽第一格，唔會無限生成空白小節
     if (measures.length === 0 && !isExport) measures.push([]);
 
-    // 2. 嚴格 4 個小節一行
+    // 2. 設定 4 小節一行
     let lines = [];
     for (let i = 0; i < measures.length; i += 4) {
         lines.push(measures.slice(i, i + 4));
     }
 
-    // 3. 設定全局放大倍數 (1.3倍，更適合小朋友)
     const SCALE = 1.3;
     const measureWidths = [320, 240, 240, 240]; 
     const lineSpacing = isGrand ? 250 : 160;
-    const startOffsetY = isExport ? 100 : 30; // 匯出時頂部留位寫歌名
+    const startOffsetY = isExport ? 100 : 30; 
 
     const canvasWidth = 1100; 
     const canvasHeight = Math.max(300, lines.length * lineSpacing + startOffsetY + 50);
@@ -117,7 +122,6 @@ function renderScore(isExport = false) {
     context = renderer.getContext();
     context.scale(SCALE, SCALE);
 
-    // 匯出模式：畫白底及標題
     if (isExport) {
         const ctx2d = context.canvasContext || targetCanvas.getContext('2d');
         ctx2d.fillStyle = "#ffffff";
@@ -128,7 +132,7 @@ function renderScore(isExport = false) {
         ctx2d.fillText(document.getElementById("song-title").value, canvasWidth / 2, 60);
     }
 
-    // 4. 逐行逐小節繪製
+    // 3. 逐行繪製
     lines.forEach((lineMeasures, lineIndex) => {
         let startY = lineIndex * lineSpacing + startOffsetY;
         let lineX = 20;
@@ -141,14 +145,13 @@ function renderScore(isExport = false) {
             let isFirstInLine = (mIndex === 0);
             let isFirstMeasure = (lineIndex === 0 && mIndex === 0);
             
-            // 畫高音/主五線譜
+            // 畫五線譜框線
             let stave = new Stave(mX, startY, mW);
             if (isFirstInLine) stave.addClef(isGrand ? "treble" : clef);
             if (isFirstMeasure) stave.addTimeSignature(timeSig);
             stave.setContext(context).draw();
             
             let staveBass;
-            // 畫大譜表低音五線譜
             if (isGrand) {
                 staveBass = new Stave(mX, startY + 100, mW);
                 if (isFirstInLine) staveBass.addClef("bass");
@@ -170,19 +173,28 @@ function renderScore(isExport = false) {
             let vexNotes = [];
             let bassVexNotes = [];
 
-            // 處理音符分配
+            // 生成音符資料
             measureData.forEach(data => {
                 let vexDur = data.duration === "hd" ? "h" : data.duration;
                 if (isGrand) {
-                    // 大譜表：C4或以上去高音，以下去低音。另一行放透明休止符對齊。
-                    let octave = parseInt(data.pitch.split('/')[1]);
-                    let isTreble = octave >= 4;
+                    // 大譜表自訂高低音判斷邏輯
+                    let isTreble = true;
+                    if (data.staffTarget === 'treble') {
+                        isTreble = true;
+                    } else if (data.staffTarget === 'bass') {
+                        isTreble = false;
+                    } else {
+                        // 自動判斷
+                        let octave = parseInt(data.pitch.split('/')[1]);
+                        isTreble = octave >= 4;
+                    }
                     
                     let tNote = new StaveNote({ keys: isTreble && !data.isRest ? [data.pitch] : ["b/4"], duration: vexDur + (isTreble && !data.isRest ? "" : "r"), clef: "treble", auto_stem: true });
                     let bNote = new StaveNote({ keys: !isTreble && !data.isRest ? [data.pitch] : ["d/3"], duration: vexDur + (!isTreble && !data.isRest ? "" : "r"), clef: "bass", auto_stem: true });
                     
                     if (isTreble) { applyModifiers(tNote, data); bNote.setStyle({fillStyle: "transparent", strokeStyle: "transparent"}); } 
                     else { applyModifiers(bNote, data); tNote.setStyle({fillStyle: "transparent", strokeStyle: "transparent"}); }
+                    
                     vexNotes.push(tNote);
                     bassVexNotes.push(bNote);
                 } else {
@@ -193,7 +205,11 @@ function renderScore(isExport = false) {
                 }
             });
 
-            // 聲部排版 (完美解決大譜表崩潰問題)
+            // ★ 修正重點：必須在 Draw 之前產生 Beams，系統先識得收埋多餘嘅符尾！
+            let beamsTreble = Beam.generateBeams(vexNotes.filter(n => !n.isRest()));
+            let beamsBass = isGrand ? Beam.generateBeams(bassVexNotes.filter(n => !n.isRest())) : [];
+
+            // 處理 Voice 排版
             let voices = [];
             let voiceTreble = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT);
             voiceTreble.addTickables(vexNotes);
@@ -207,21 +223,30 @@ function renderScore(isExport = false) {
             }
             
             new Formatter().joinVoices(voices).format(voices, mW - 40);
+            
+            // 繪製音符
             voiceTreble.draw(context, stave);
             if (isGrand) voiceBass.draw(context, staveBass);
 
-            // 智能產生 8 分音符連線
-            let beamsTreble = Beam.generateBeams(vexNotes.filter(n => !n.isRest()));
-            beamsTreble.forEach(b => b.setContext(context).draw());
-            
-            if (isGrand) {
-                let beamsBass = Beam.generateBeams(bassVexNotes.filter(n => !n.isRest()));
-                beamsBass.forEach(b => b.setContext(context).draw());
+            // 繪製彩色連線
+            if (isColorMode) {
+                beamsTreble.forEach(b => {
+                    const firstNotePitch = b.notes[0].keys[0].charAt(0).toLowerCase();
+                    const color = colorMap[firstNotePitch] || "#000000";
+                    b.setStyle({ fillStyle: color, strokeStyle: color });
+                });
+                beamsBass.forEach(b => {
+                    const firstNotePitch = b.notes[0].keys[0].charAt(0).toLowerCase();
+                    const color = colorMap[firstNotePitch] || "#000000";
+                    b.setStyle({ fillStyle: color, strokeStyle: color });
+                });
             }
+
+            beamsTreble.forEach(b => b.setContext(context).draw());
+            if (isGrand) beamsBass.forEach(b => b.setContext(context).draw());
         });
     });
 
-    // 匯出模式：將畫好嘅高清 Canvas 轉為 Base64 並顯示喺彈出視窗
     if (isExport) {
         const dataUrl = targetCanvas.toDataURL("image/png");
         document.getElementById('export-image-result').src = dataUrl;
@@ -229,19 +254,20 @@ function renderScore(isExport = false) {
     }
 }
 
-// 點擊琴鍵輸入音符
+// 點擊輸入
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
         let basePitch = e.target.getAttribute('data-note'); 
         const clef = document.getElementById("clef-select").value;
         const fingering = document.getElementById('fingering-select').value;
+        const staffTarget = document.getElementById('staff-target-select').value; // 取得目標譜號
         
         if (clef === "bass") {
             const parts = basePitch.split('/');
             basePitch = `${parts[0]}/${parseInt(parts[1]) - 2}`;
         }
 
-        scoreData.push({ pitch: basePitch, duration: selectedDuration, isRest: isRestMode, fingering: fingering });
+        scoreData.push({ pitch: basePitch, duration: selectedDuration, isRest: isRestMode, fingering: fingering, staffTarget: staffTarget });
         renderScore();
 
         if (!isRestMode) {
@@ -252,8 +278,6 @@ document.querySelectorAll('.note-btn').forEach(btn => {
     });
 });
 
-// UI 控制項事件
-document.getElementById('clef-select').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 document.getElementById('undo-btn').addEventListener('click', () => { scoreData.pop(); renderScore(); });
 document.getElementById('clear-btn').addEventListener('click', () => { scoreData = []; renderScore(); });
@@ -271,15 +295,13 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     });
 });
 
-// 觸發匯出圖片
 document.getElementById('export-btn').addEventListener('click', () => {
     if (scoreData.length === 0) { alert("請先輸入音符！"); return; }
-    renderScore(true); // 啟動隱藏嘅高清 Canvas 渲染引擎
+    renderScore(true);
 });
 
 document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('export-modal').style.display = 'none';
 });
 
-// 啟動時渲染一次空樂譜
 renderScore();
