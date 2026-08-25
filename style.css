@@ -32,16 +32,14 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 .vf-stavenote { cursor: pointer; transition: opacity 0.2s; }
 .vf-stavenote:hover { opacity: 0.6; }
 
-/* 🖨️ PDF 列印專用設定 (顯示靚靚歌名) */
-.print-title { display: none; } /* 平時隱藏 */
+/* 🖨️ PDF 列印專用設定 */
+.print-title { display: none; } 
 
 @media print {
     @page { margin: 10mm; }
     body, .app-container { height: auto; overflow: visible; background: #fff; margin: 0; padding: 0; }
-    /* 列印時隱藏所有工具列 */
     .top-bar, .tools-bar, .keyboard-bar { display: none !important; }
     
-    /* 列印時顯示標題 */
     .print-title { 
         display: block !important; 
         text-align: center; 
