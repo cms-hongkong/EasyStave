@@ -55,6 +55,7 @@ function applyModifiers(note, pitches, fingerings, isRest) {
     }
 }
 
+// 核心渲染 (終極穩定 SVG + 防崩潰機制)
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const isGrand = clef === "grand";
@@ -82,7 +83,7 @@ function renderScore() {
         }
     });
     if (currentMeasure.length > 0) measures.push(currentMeasure);
-    if (measures.length === 0) measures.push([]);
+    if (measures.length === 0) measures.push([]); // 保證最少有一小節
 
     let lines = [];
     for (let i = 0; i < measures.length; i += 4) {
@@ -94,15 +95,15 @@ function renderScore() {
         pages.push(lines.slice(i, i + maxLinesPerPage));
     }
 
-    // 將放大比例設定為 1.45 倍 (確保 iPad 穩定不白屏)
-    const SCALE = 1.45; 
-    const measureWidths = [280, 220, 220, 220]; // 第一格闊啲，留位畀譜號
-    const lineSpacing = isGrand ? 250 : 160;
-    const topMargin = 40;
+    // 放大比例 1.6 倍，SVG 無懼失真
+    const SCALE = 1.6; 
+    const measureWidths = [280, 220, 220, 220]; 
+    const lineSpacing = isGrand ? 250 : 150;
+    const topMargin = 50;
 
     scoreWrapper.innerHTML = "";
 
-    pages.forEach((pageLines) => {
+    pages.forEach((pageLines, pageIndex) => {
         const logicalWidth = 980;
         const logicalHeight = Math.max(200, pageLines.length * lineSpacing + topMargin + 40);
         const actualWidth = logicalWidth * SCALE;
@@ -110,24 +111,28 @@ function renderScore() {
 
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
+        
+        // 如果係列印，第一頁加標題
+        if (pageIndex === 0) {
+            let titleDiv = document.createElement("h1");
+            titleDiv.innerText = document.getElementById("song-title").value;
+            titleDiv.style.textAlign = "center";
+            titleDiv.style.marginBottom = "20px";
+            titleDiv.style.display = "none"; // 平時隱藏，只在 Print 顯示 (靠 CSS)
+            containerDiv.appendChild(titleDiv);
+        }
+
         scoreWrapper.appendChild(containerDiv);
 
-        const renderer = new Renderer(containerDiv, Renderer.Backends.CANVAS);
+        // 轉用 SVG，解決 Canvas 白畫面問題
+        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
         renderer.resize(actualWidth, actualHeight);
         const context = renderer.getContext();
-        context.scale(SCALE, SCALE);
-
-        const canvasElement = containerDiv.querySelector("canvas");
-        const ctx2d = canvasElement.getContext("2d");
-        ctx2d.save();
-        ctx2d.setTransform(1, 0, 0, 1, 0, 0);
-        ctx2d.fillStyle = "#ffffff";
-        ctx2d.fillRect(0, 0, actualWidth, actualHeight);
-        ctx2d.restore();
+        context.setViewBox(0, 0, logicalWidth, logicalHeight); // SVG 專屬完美縮放
 
         pageLines.forEach((lineMeasures, lineIndex) => {
             let startY = lineIndex * lineSpacing + topMargin;
-            let lineX = 20; // 左邊留少少白邊
+            let lineX = 10;
             
             lineMeasures.forEach((measureData, mIndex) => {
                 let mW = measureWidths[mIndex] || 220;
@@ -159,53 +164,63 @@ function renderScore() {
                     new StaveConnector(stave, stave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(context).draw();
                 }
 
-                if (measureData.length === 0) return;
-
                 let vexNotes = [];
                 let bassVexNotes = [];
 
-                measureData.forEach(data => {
-                    let vexDur = data.duration === "hd" ? "h" : data.duration;
-                    
+                // 🚨 防死機機制：如果小節係吉嘅，塞個隱形全休止符畀 Formatter 食，防止崩潰！
+                if (measureData.length === 0) {
+                    let ghostNote = new StaveNote({ keys: ["b/4"], duration: "wr", clef: "treble" });
+                    ghostNote.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
+                    vexNotes.push(ghostNote);
                     if (isGrand) {
-                        let treblePitches = []; let trebleFingers = [];
-                        let bassPitches = []; let bassFingers = [];
-
-                        if (!data.isRest) {
-                            data.pitches.forEach((p, idx) => {
-                                let target = data.staffTargets[idx];
-                                let isTreble = true;
-                                if (target === 'treble') isTreble = true;
-                                else if (target === 'bass') isTreble = false;
-                                else {
-                                    let oct = parseInt(p.split('/')[1]);
-                                    isTreble = oct >= 4;
-                                }
-                                if (isTreble) { treblePitches.push(p); trebleFingers.push(data.fingerings[idx]); }
-                                else { bassPitches.push(p); bassFingers.push(data.fingerings[idx]); }
-                            });
-                        }
-
-                        let tDur = vexDur + (treblePitches.length === 0 ? "r" : "");
-                        let bDur = vexDur + (bassPitches.length === 0 ? "r" : "");
-                        if (treblePitches.length === 0) treblePitches = ["b/4"];
-                        if (bassPitches.length === 0) bassPitches = ["d/3"];
-
-                        let tNote = new StaveNote({ keys: treblePitches, duration: tDur, clef: "treble", auto_stem: true });
-                        let bNote = new StaveNote({ keys: bassPitches, duration: bDur, clef: "bass", auto_stem: true });
-                        
-                        applyModifiers(tNote, treblePitches, trebleFingers, tDur.includes("r"));
-                        applyModifiers(bNote, bassPitches, bassFingers, bDur.includes("r"));
-                        
-                        vexNotes.push(tNote);
-                        bassVexNotes.push(bNote);
-                    } else {
-                        let keys = data.isRest ? [(clef === "bass" ? "d/3" : "b/4")] : data.pitches;
-                        let note = new StaveNote({ keys: keys, duration: vexDur + (data.isRest ? "r" : ""), clef: clef, auto_stem: true });
-                        applyModifiers(note, data.pitches, data.fingerings, data.isRest);
-                        vexNotes.push(note);
+                        let ghostBass = new StaveNote({ keys: ["d/3"], duration: "wr", clef: "bass" });
+                        ghostBass.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
+                        bassVexNotes.push(ghostBass);
                     }
-                });
+                } else {
+                    measureData.forEach(data => {
+                        let vexDur = data.duration === "hd" ? "h" : data.duration;
+                        
+                        if (isGrand) {
+                            let treblePitches = []; let trebleFingers = [];
+                            let bassPitches = []; let bassFingers = [];
+
+                            if (!data.isRest) {
+                                data.pitches.forEach((p, idx) => {
+                                    let target = data.staffTargets[idx];
+                                    let isTreble = true;
+                                    if (target === 'treble') isTreble = true;
+                                    else if (target === 'bass') isTreble = false;
+                                    else {
+                                        let oct = parseInt(p.split('/')[1]);
+                                        isTreble = oct >= 4;
+                                    }
+                                    if (isTreble) { treblePitches.push(p); trebleFingers.push(data.fingerings[idx]); }
+                                    else { bassPitches.push(p); bassFingers.push(data.fingerings[idx]); }
+                                });
+                            }
+
+                            let tDur = vexDur + (treblePitches.length === 0 ? "r" : "");
+                            let bDur = vexDur + (bassPitches.length === 0 ? "r" : "");
+                            if (treblePitches.length === 0) treblePitches = ["b/4"];
+                            if (bassPitches.length === 0) bassPitches = ["d/3"];
+
+                            let tNote = new StaveNote({ keys: treblePitches, duration: tDur, clef: "treble", auto_stem: true });
+                            let bNote = new StaveNote({ keys: bassPitches, duration: bDur, clef: "bass", auto_stem: true });
+                            
+                            applyModifiers(tNote, treblePitches, trebleFingers, tDur.includes("r"));
+                            applyModifiers(bNote, bassPitches, bassFingers, bDur.includes("r"));
+                            
+                            vexNotes.push(tNote);
+                            bassVexNotes.push(bNote);
+                        } else {
+                            let keys = data.isRest ? [(clef === "bass" ? "d/3" : "b/4")] : data.pitches;
+                            let note = new StaveNote({ keys: keys, duration: vexDur + (data.isRest ? "r" : ""), clef: clef, auto_stem: true });
+                            applyModifiers(note, data.pitches, data.fingerings, data.isRest);
+                            vexNotes.push(note);
+                        }
+                    });
+                }
 
                 let beamsTreble = Beam.generateBeams(vexNotes.filter(n => !n.isRest()));
                 let beamsBass = isGrand ? Beam.generateBeams(bassVexNotes.filter(n => !n.isRest())) : [];
@@ -235,6 +250,7 @@ function renderScore() {
                     voices.push(voiceBass);
                 }
                 
+                // Formatter 唔會再因為冇音符而死機
                 new Formatter().joinVoices(voices).format(voices, mW - 40);
                 voiceTreble.draw(context, stave);
                 if (isGrand) voiceBass.draw(context, staveBass);
@@ -312,47 +328,62 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     });
 });
 
-document.getElementById('export-btn').addEventListener('click', () => {
-    if (scoreData.length === 0) { alert("請先輸入音符！"); return; }
-    
-    const canvases = document.querySelectorAll("#score-wrapper canvas");
-    if (canvases.length === 0) return;
+// 🖨️ 列印 / 匯出 PDF (最適合 iPad 使用)
+document.getElementById('export-pdf-btn').addEventListener('click', () => {
+    // 透過 CSS @media print，系統會自動隱藏按鈕並匯出完美樂譜
+    window.print();
+});
 
+// 📥 匯出圖片 (PNG) - 後備方案
+document.getElementById('export-btn').addEventListener('click', () => {
+    const svgs = document.querySelectorAll(".score-page svg");
+    if (svgs.length === 0) { alert("無樂譜可匯出！"); return; }
+    
     let totalHeight = 0;
     let maxWidth = 0;
-
-    canvases.forEach(c => {
-        totalHeight += c.height;
-        if (c.width > maxWidth) maxWidth = c.width;
-    });
-
-    const finalCanvas = document.createElement("canvas");
-    finalCanvas.width = maxWidth + 60; 
-    finalCanvas.height = totalHeight + 120; 
-    const ctx = finalCanvas.getContext("2d");
-    
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-    
-    ctx.fillStyle = "#000000";
-    ctx.textAlign = "center";
-    ctx.font = "bold 44px sans-serif";
+    let images = [];
+    let loadedCount = 0;
     const title = document.getElementById("song-title").value;
-    ctx.fillText(title, finalCanvas.width / 2, 70);
 
-    let currentY = 100;
-    canvases.forEach(c => {
-        ctx.drawImage(c, 30, currentY);
-        currentY += c.height;
+    svgs.forEach((svg) => {
+        const xml = new XMLSerializer().serializeToString(svg);
+        const svg64 = btoa(unescape(encodeURIComponent(xml)));
+        const img = new Image();
+        img.onload = () => {
+            loadedCount++;
+            if (loadedCount === svgs.length) {
+                const canvas = document.createElement("canvas");
+                canvas.width = maxWidth + 60; 
+                canvas.height = totalHeight + 120; 
+                const ctx = canvas.getContext("2d");
+                
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#000000";
+                ctx.textAlign = "center";
+                ctx.font = "bold 44px sans-serif";
+                ctx.fillText(title, canvas.width / 2, 70);
+
+                let currentY = 100;
+                images.forEach(obj => {
+                    ctx.drawImage(obj.img, 30, currentY, obj.width, obj.height);
+                    currentY += obj.height;
+                });
+
+                document.getElementById('export-image-result').src = canvas.toDataURL("image/png");
+                document.getElementById('export-modal').style.display = 'flex';
+            }
+        };
+        img.src = 'data:image/svg+xml;base64,' + svg64;
+        images.push({ img: img, width: svg.clientWidth, height: svg.clientHeight });
+        totalHeight += svg.clientHeight;
+        if (svg.clientWidth > maxWidth) maxWidth = svg.clientWidth;
     });
-
-    document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
-    document.getElementById('export-modal').style.display = 'flex';
 });
 
 document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('export-modal').style.display = 'none';
 });
 
-// 啟動即畫出預設譜表
+// 啟動即畫
 renderScore();
