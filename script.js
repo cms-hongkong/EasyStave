@@ -11,17 +11,23 @@ let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
 
+document.getElementById('song-title').addEventListener('input', function() {
+    let printTitles = document.querySelectorAll('.print-title');
+    printTitles.forEach(t => t.innerText = this.value);
+});
+
+// --- UI 安全綁定 (用 this 取代 e.target 防止點中子元素) ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', function() {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        selectedDuration = e.target.getAttribute('data-dur');
+        this.classList.add('active');
+        selectedDuration = this.getAttribute('data-dur');
     });
 });
 
-document.getElementById('rest-btn').addEventListener('click', (e) => {
+document.getElementById('rest-btn').addEventListener('click', function() {
     isRestMode = !isRestMode;
-    e.target.classList.toggle('active');
+    this.classList.toggle('active');
 });
 
 document.getElementById("toggle-color").addEventListener("click", function() {
@@ -52,15 +58,14 @@ function updateClefUI() {
 
 document.getElementById('clef-select').addEventListener('change', updateClefUI);
 
-document.getElementById('track-select').addEventListener('change', (e) => {
-    currentTrack = e.target.value;
+document.getElementById('track-select').addEventListener('change', function() {
+    currentTrack = this.value;
     editingIndex = -1; updateEditStatus();
 });
 
 document.getElementById('lines-per-page').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 
-// --- ✏️ 雙重修改機制 ---
 function updateEditStatus() {
     const status = document.getElementById("edit-status");
     const cancelBtn = document.getElementById("cancel-edit-btn");
@@ -166,7 +171,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-function renderScore(isExport = false) {
+function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
     const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
@@ -193,8 +198,7 @@ function renderScore(isExport = false) {
     const lineSpacing = clef === 'grand' ? 250 : 150;
     const topMargin = 50;
 
-    let targetContainer = isExport ? document.getElementById("hidden-export-container") : scoreWrapper;
-    targetContainer.innerHTML = "";
+    scoreWrapper.innerHTML = "";
 
     pages.forEach((pageLines, pageIndex) => {
         let maxLineWidth = 0;
@@ -219,38 +223,23 @@ function renderScore(isExport = false) {
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         
-        if (pageIndex === 0 && (!isExport)) {
-            let titleDiv = document.createElement("h1");
+        if (pageIndex === 0) {
+            let titleDiv = document.createElement("div");
+            titleDiv.className = "print-title";
             titleDiv.innerText = document.getElementById("song-title").value;
-            titleDiv.style.textAlign = "center";
-            titleDiv.style.marginBottom = "20px";
-            titleDiv.style.display = "none"; 
             containerDiv.appendChild(titleDiv);
         }
-        targetContainer.appendChild(containerDiv);
+        
+        scoreWrapper.appendChild(containerDiv);
 
-        const backend = isExport ? Renderer.Backends.CANVAS : Renderer.Backends.SVG;
-        const renderer = new Renderer(containerDiv, backend);
+        // 專注使用 SVG，棄用 Canvas
+        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
         const context = renderer.getContext();
-        
-        if (isExport) {
-            context.scale(SCALE, SCALE);
-            const ctx2d = context.canvasContext || containerDiv.querySelector("canvas").getContext("2d");
-            ctx2d.fillStyle = "#ffffff";
-            ctx2d.fillRect(0, 0, logicalWidth * SCALE, logicalHeight * SCALE);
-            if (pageIndex === 0) {
-                ctx2d.fillStyle = "#000000";
-                ctx2d.textAlign = "center";
-                ctx2d.font = "bold 34px sans-serif";
-                ctx2d.fillText(document.getElementById("song-title").value, logicalWidth / 2, 40);
-            }
-        } else {
-            context.setViewBox(0, 0, logicalWidth, logicalHeight);
-        }
+        context.setViewBox(0, 0, logicalWidth, logicalHeight);
 
         pageLines.forEach((lineGroup, lineIndex) => {
-            let startY = lineIndex * lineSpacing + topMargin + (isExport && pageIndex === 0 ? 30 : 0);
+            let startY = lineIndex * lineSpacing + topMargin;
             let lineX = 40; 
             let mWidths = lineLayouts[lineIndex];
             
@@ -287,7 +276,8 @@ function renderScore(isExport = false) {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName });
+                        // 🚨 修正：隱藏幽靈音符不計算符桿，防止崩潰
+                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName, auto_stem: false });
                         ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
@@ -295,10 +285,16 @@ function renderScore(isExport = false) {
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        // 🚨 終極修復：無論咩譜號，休止符一律用標準座標 b/4 置中！
                         let keys = d.isRest ? ["b/4"] : d.pitches;
                         
-                        let note = new StaveNote({ keys: keys, duration: vexDur + (d.isRest ? "r" : ""), clef: clefName, auto_stem: true });
+                        // 🚨 核心防死機修復：休止符 (isRest) 絕對唔可以設定 auto_stem: true，否則 VexFlow 會死機！
+                        let note = new StaveNote({ 
+                            keys: keys, 
+                            duration: vexDur + (d.isRest ? "r" : ""), 
+                            clef: clefName, 
+                            auto_stem: !d.isRest // 只有實體音符先計算符桿方向
+                        });
+                        
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
                         note.setAttribute('class', 'vf-stavenote'); 
                         
@@ -338,20 +334,6 @@ function renderScore(isExport = false) {
             });
         });
     });
-
-    if (isExport) {
-        const canvases = targetContainer.querySelectorAll("canvas");
-        if (canvases.length === 0) return;
-        let tH = 0, mW = 0;
-        canvases.forEach(c => { tH += c.height; if (c.width > mW) mW = c.width; });
-        const finalCanvas = document.createElement("canvas");
-        finalCanvas.width = mW; finalCanvas.height = tH;
-        const ctx = finalCanvas.getContext("2d");
-        let cY = 0;
-        canvases.forEach(c => { ctx.drawImage(c, 0, cY); cY += c.height; });
-        document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
-        document.getElementById('export-modal').style.display = 'flex';
-    }
 }
 
 function processPitch(basePitch, shiftVal, acc) {
@@ -370,8 +352,8 @@ function toTonePitch(pitchStr) {
 
 // --- 輸入與替換邏輯 ---
 document.querySelectorAll('.note-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-        let rawPitch = e.target.getAttribute('data-note'); 
+    btn.addEventListener('click', async function() {
+        let rawPitch = this.getAttribute('data-note'); 
         const fingering = document.getElementById('fingering-select').value;
         const octaveShift = parseInt(document.getElementById('octave-select').value);
         const acc = document.querySelector('input[name="acc"]:checked').value;
@@ -435,64 +417,8 @@ document.getElementById('stop-btn').addEventListener('click', () => {
     if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); currentSynth = null; }
 });
 
+// 啟動 PDF 列印對話框
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
-
-document.getElementById('export-btn').addEventListener('click', () => {
-    if (tracks.treble.length === 0 && tracks.bass.length === 0) { alert("請先輸入音符！"); return; }
-    
-    const svgs = document.querySelectorAll("#score-wrapper svg");
-    if (svgs.length === 0) return;
-
-    let totalHeight = 0;
-    let maxWidth = 0;
-    let images = [];
-    let loadedCount = 0;
-    const title = document.getElementById("song-title").value;
-
-    svgs.forEach((svg) => {
-        if (!svg.getAttribute("xmlns")) svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-        const xml = new XMLSerializer().serializeToString(svg);
-        const svg64 = btoa(unescape(encodeURIComponent(xml)));
-        const img = new Image();
-
-        const svgWidth = parseInt(svg.getAttribute("width")) || svg.clientWidth || 800;
-        const svgHeight = parseInt(svg.getAttribute("height")) || svg.clientHeight || 200;
-
-        img.onload = () => {
-            loadedCount++;
-            if (loadedCount === svgs.length) {
-                const canvas = document.createElement("canvas");
-                canvas.width = maxWidth + 60;
-                canvas.height = totalHeight + 120;
-                const ctx = canvas.getContext("2d");
-
-                ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#000000";
-                ctx.textAlign = "center";
-                ctx.font = "bold 44px sans-serif";
-                ctx.fillText(title, canvas.width / 2, 70);
-
-                let currentY = 100;
-                images.forEach(obj => {
-                    ctx.drawImage(obj.img, 30, currentY, obj.width, obj.height);
-                    currentY += obj.height;
-                });
-
-                document.getElementById('export-image-result').src = canvas.toDataURL("image/png");
-                document.getElementById('export-modal').style.display = 'flex';
-            }
-        };
-        img.src = 'data:image/svg+xml;base64,' + svg64;
-        images.push({ img: img, width: svgWidth, height: svgHeight });
-        totalHeight += svgHeight;
-        if (svgWidth > maxWidth) maxWidth = svgWidth;
-    });
-});
-
-document.getElementById('close-modal-btn').addEventListener('click', () => {
-    document.getElementById('export-modal').style.display = 'none';
-});
 
 // 初始化
 updateClefUI();
