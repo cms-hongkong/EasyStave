@@ -1,6 +1,5 @@
-const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, Voice, Beam } = Vex.Flow;
+const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, Voice, Beam, Accidental } = Vex.Flow;
 
-// 🌟 數據庫大升級：分開高音軌、低音軌
 let tracks = { treble: [], bass: [] };
 let currentTrack = "treble";
 let editingIndex = -1;
@@ -33,7 +32,6 @@ document.getElementById("toggle-color").addEventListener("click", function() {
     renderScore();
 });
 
-// 譜號與音軌聯動
 document.getElementById('clef-select').addEventListener('change', (e) => {
     const trackSelect = document.getElementById('track-select');
     if (e.target.value === 'treble') { trackSelect.value = 'treble'; trackSelect.disabled = true; currentTrack = 'treble'; }
@@ -50,12 +48,12 @@ document.getElementById('track-select').addEventListener('change', (e) => {
 document.getElementById('lines-per-page').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 
-// --- ✏️ 點擊音符修改邏輯 ---
+// --- ✏️ 修改狀態控制 (加入防 NaN 機制) ---
 function updateEditStatus() {
     const status = document.getElementById("edit-status");
     const cancelBtn = document.getElementById("cancel-edit-btn");
     if (editingIndex === -1) {
-        status.innerText = "✨ 新增模式 (點擊音符修改)";
+        status.innerText = "✨ 點擊音符可修改";
         status.style.color = "#333";
         cancelBtn.style.display = "none";
     } else {
@@ -71,44 +69,49 @@ document.getElementById('cancel-edit-btn').addEventListener('click', () => {
     editingIndex = -1; updateEditStatus();
 });
 
-// 監聽 SVG 音符點擊
+// 點擊音符觸發修改
 scoreWrapper.addEventListener('click', (e) => {
     let el = e.target.closest('.vf-stavenote');
     if (el) {
         let id = el.getAttribute('id');
+        // 嚴格篩選格式：vf-treble-0，防止讀取到幽靈音符導致 NaN
         if (id && id.startsWith('vf-')) {
-            let parts = id.split('-'); // e.g. vf-treble-5
-            currentTrack = parts[1];
-            document.getElementById('track-select').value = currentTrack;
-            editingIndex = parseInt(parts[2]);
-            updateEditStatus();
+            let parts = id.split('-'); 
+            if (parts.length === 3 && !isNaN(parseInt(parts[2]))) {
+                currentTrack = parts[1];
+                document.getElementById('track-select').value = currentTrack;
+                editingIndex = parseInt(parts[2]);
+                updateEditStatus();
+            }
         }
     }
 });
 
-// --- 附加樣式 (完美處理附點與編輯標記) ---
+// --- 附加樣式 (支援升降號) ---
 function applyModifiers(note, data, isEditing) {
-    // 1. 處理附點 (音符或休止符都會加點)
     if (data.duration.includes("d")) note.addModifier(new Dot(), 0);
     
-    // 2. 編輯模式高亮
     if (isEditing) {
         note.addModifier(new Annotation("✏️").setFont("sans-serif", 18).setVerticalJustification(Annotation.VerticalJustify.TOP), 0);
         note.setStyle({ fillStyle: '#007aff', strokeStyle: '#007aff' });
     } else if (isColorMode && !data.isRest) {
-        // 音符柄 (Stem) 顏色
         const baseColor = colorMap[data.pitches[0].charAt(0).toLowerCase()] || "#000000";
         note.setStyle({ fillStyle: baseColor, strokeStyle: baseColor });
     }
 
-    // 3. 音名與指法
     if (!data.isRest) {
         data.pitches.forEach((p, idx) => {
             const pitchName = p.charAt(0).toUpperCase();
+            
+            // 加入升降號
+            if (data.accs && data.accs[idx] && data.accs[idx] !== "") {
+                note.addModifier(new Accidental(data.accs[idx]), idx);
+            }
+
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
             
-            if (data.fingerings[idx] && data.fingerings[idx] !== 'none') {
+            if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
                 const fingerAnno = new Annotation(data.fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.TOP);
                 note.addModifier(fingerAnno, idx);
             }
@@ -121,12 +124,10 @@ function applyModifiers(note, data, isEditing) {
     }
 }
 
-// 獲取拍子長度數值
 function getBeatValue(dur) {
     return dur === 'w' ? 4 : dur === 'hd' ? 3 : dur === 'h' ? 2 : dur === 'qd' ? 1.5 : dur === 'q' ? 1 : 0.5;
 }
 
-// 將平排數據分拆成小節
 function buildMeasures(trackData, timeBeats) {
     let measures = [];
     let currentM = [];
@@ -142,18 +143,15 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 核心渲染引擎
 function renderScore(isExport = false) {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
     const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
     const maxLinesPerPage = parseInt(document.getElementById('lines-per-page').value) || 5; 
 
-    // 分別建立高低音小節
     let measuresTreble = buildMeasures(tracks.treble, timeBeats);
     let measuresBass = buildMeasures(tracks.bass, timeBeats);
     
-    // 找出最長嘅小節數，統一排版
     let maxM = Math.max(measuresTreble.length, measuresBass.length, 1);
     let activeMeasures = [];
     
@@ -165,7 +163,6 @@ function renderScore(isExport = false) {
 
     let lines = [];
     for (let i = 0; i < activeMeasures.length; i += 4) { lines.push(activeMeasures.slice(i, i + 4)); }
-
     let pages = [];
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
@@ -193,7 +190,8 @@ function renderScore(isExport = false) {
             if (currentLineWidth > maxLineWidth) maxLineWidth = currentLineWidth;
         });
 
-        const logicalWidth = Math.max(850, maxLineWidth + 50); 
+        // 加上 80px buffer 保證大括號唔會被裁走
+        const logicalWidth = Math.max(850, maxLineWidth + 80); 
         const logicalHeight = Math.max(200, pageLines.length * lineSpacing + topMargin + 40);
 
         let containerDiv = document.createElement("div");
@@ -231,7 +229,8 @@ function renderScore(isExport = false) {
 
         pageLines.forEach((lineGroup, lineIndex) => {
             let startY = lineIndex * lineSpacing + topMargin + (isExport && pageIndex === 0 ? 30 : 0);
-            let lineX = 10;
+            // 🚨 將第一小節嘅 X 坐標移右 40px，防止 PDF 裁斷大譜表括號
+            let lineX = 40; 
             let mWidths = lineLayouts[lineIndex];
             
             lineGroup.forEach((measureGroup, mIndex) => {
@@ -264,10 +263,8 @@ function renderScore(isExport = false) {
                     new StaveConnector(stave, stave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(context).draw();
                 }
 
-                // 將數據轉為 VexFlow 音符
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
-                    // 🚨 防崩潰：如果嗰行冇音符，畫隱形全休止符
                     if (!dataArr || dataArr.length === 0) {
                         let ghost = new StaveNote({ keys: [clefName === 'bass' ? "d/3" : "b/4"], duration: "wr", clef: clefName });
                         ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
@@ -276,7 +273,7 @@ function renderScore(isExport = false) {
                     }
                     
                     dataArr.forEach(d => {
-                        let vexDur = d.duration.replace('d', ''); // 移除 'd' 等 VexFlow 食
+                        let vexDur = d.duration.replace('d', ''); 
                         let keys = d.isRest ? [clefName === 'bass' ? "d/3" : "b/4"] : d.pitches;
                         let note = new StaveNote({ keys: keys, duration: vexDur + (d.isRest ? "r" : ""), clef: clefName, auto_stem: true });
                         
@@ -335,21 +332,33 @@ function renderScore(isExport = false) {
     }
 }
 
-function shiftOctave(pitchStr, shiftVal) {
-    let parts = pitchStr.split('/');
-    return `${parts[0]}/${parseInt(parts[1]) + shiftVal}`;
+// 處理音域與升降號
+function processPitch(basePitch, shiftVal, acc) {
+    let noteName = basePitch.split('/')[0];
+    let oct = parseInt(basePitch.split('/')[1]) + shiftVal;
+    if (acc === '#' || acc === 'b' || acc === 'n') noteName += acc;
+    return `${noteName}/${oct}`;
+}
+
+// 將 VexFlow pitch 轉為 Tone.js 讀得明嘅格式 (移除 'n')
+function toTonePitch(pitchStr) {
+    let note = pitchStr.split('/')[0];
+    let oct = pitchStr.split('/')[1];
+    let toneNote = note.charAt(0).toUpperCase() + note.slice(1) + oct;
+    return toneNote.replace('n', ''); 
 }
 
 // --- 輸入與替換邏輯 ---
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-        let basePitch = e.target.getAttribute('data-note'); 
+        let rawPitch = e.target.getAttribute('data-note'); 
         const fingering = document.getElementById('fingering-select').value;
         const octaveShift = parseInt(document.getElementById('octave-select').value);
+        const acc = document.querySelector('input[name="acc"]:checked').value;
         const isChordMode = document.getElementById('chord-mode').checked;
         
-        basePitch = shiftOctave(basePitch, octaveShift);
-        let newData = { pitches: [basePitch], duration: selectedDuration, isRest: isRestMode, fingerings: [fingering] };
+        let basePitch = processPitch(rawPitch, octaveShift, acc);
+        let newData = { pitches: [basePitch], duration: selectedDuration, isRest: isRestMode, fingerings: [fingering], accs: [acc] };
 
         if (isChordMode && !isRestMode && tracks[currentTrack].length > 0) {
             let targetIdx = editingIndex !== -1 ? editingIndex : tracks[currentTrack].length - 1;
@@ -357,12 +366,13 @@ document.querySelectorAll('.note-btn').forEach(btn => {
             if (targetData.duration === selectedDuration && !targetData.isRest) {
                 targetData.pitches.push(basePitch);
                 targetData.fingerings.push(fingering);
-                document.getElementById('chord-mode').checked = false; // 防呆：加完自動取消剔號
+                targetData.accs.push(acc);
+                document.getElementById('chord-mode').checked = false; 
             } else { alert("⚠️ 疊加失敗：長度必須相同！"); return; }
         } else {
             if (editingIndex !== -1) {
                 tracks[currentTrack][editingIndex] = newData;
-                editingIndex = -1; // 修改完自動退出編輯模式
+                editingIndex = -1; 
                 updateEditStatus();
             } else {
                 tracks[currentTrack].push(newData);
@@ -375,7 +385,7 @@ document.querySelectorAll('.note-btn').forEach(btn => {
             await Tone.start();
             if (currentSynth) currentSynth.dispose();
             currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
-            currentSynth.triggerAttackRelease(basePitch.replace('/', '').toUpperCase(), "8n");
+            currentSynth.triggerAttackRelease(toTonePitch(basePitch), "8n");
         }
     });
 });
@@ -383,7 +393,6 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); });
 document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); });
 
-// --- 播放全曲 (左右手同步播放) ---
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
     if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); }
@@ -395,8 +404,8 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
         let tNow = now;
         tracks[trackName].forEach(data => {
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
-            let addTime = getBeatValue(data.duration) * 0.5; // 假設 120BPM, 1拍=0.5秒
-            if (!data.isRest) currentSynth.triggerAttackRelease(data.pitches.map(p => p.replace('/', '').toUpperCase()), toneDur, tNow);
+            let addTime = getBeatValue(data.duration) * 0.5; 
+            if (!data.isRest) currentSynth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
             tNow += addTime;
         });
     });
