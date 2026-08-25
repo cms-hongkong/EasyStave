@@ -6,26 +6,11 @@ let editingIndex = -1;
 
 const colorMap = { "c": "#FF0000", "d": "#FFA500", "e": "#E6E600", "f": "#00FF00", "g": "#ADD8E6", "a": "#0000FF", "b": "#800080" };
 const scoreWrapper = document.getElementById("score-wrapper");
-
-// 🚨 解決手機無聲：全局共用一個 Synth，避免爆 Memory
-let globalSynth = null; 
-function getSynth() {
-    if (!globalSynth) {
-        globalSynth = new Tone.PolySynth(Tone.Synth, { volume: 8 }).toDestination();
-    }
-    return globalSynth;
-}
-
+let currentSynth = null; 
 let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
 
-document.getElementById('song-title').addEventListener('input', function() {
-    let printTitles = document.querySelectorAll('.print-title');
-    printTitles.forEach(t => t.innerText = this.value);
-});
-
-// --- UI 綁定 ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -181,8 +166,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🚨 核心渲染 (加入智能比例排版)
-function renderScore() {
+function renderScore(isExport = false) {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
     const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
@@ -209,7 +193,8 @@ function renderScore() {
     const lineSpacing = clef === 'grand' ? 250 : 150;
     const topMargin = 50;
 
-    scoreWrapper.innerHTML = "";
+    let targetContainer = isExport ? document.getElementById("hidden-export-container") : scoreWrapper;
+    targetContainer.innerHTML = "";
 
     pages.forEach((pageLines, pageIndex) => {
         let maxLineWidth = 0;
@@ -234,22 +219,38 @@ function renderScore() {
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         
-        if (pageIndex === 0) {
-            let titleDiv = document.createElement("div");
-            titleDiv.className = "print-title";
+        if (pageIndex === 0 && (!isExport)) {
+            let titleDiv = document.createElement("h1");
             titleDiv.innerText = document.getElementById("song-title").value;
+            titleDiv.style.textAlign = "center";
+            titleDiv.style.marginBottom = "20px";
+            titleDiv.style.display = "none"; 
             containerDiv.appendChild(titleDiv);
         }
-        
-        scoreWrapper.appendChild(containerDiv);
+        targetContainer.appendChild(containerDiv);
 
-        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
+        const backend = isExport ? Renderer.Backends.CANVAS : Renderer.Backends.SVG;
+        const renderer = new Renderer(containerDiv, backend);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
         const context = renderer.getContext();
-        context.setViewBox(0, 0, logicalWidth, logicalHeight);
+        
+        if (isExport) {
+            context.scale(SCALE, SCALE);
+            const ctx2d = context.canvasContext || containerDiv.querySelector("canvas").getContext("2d");
+            ctx2d.fillStyle = "#ffffff";
+            ctx2d.fillRect(0, 0, logicalWidth * SCALE, logicalHeight * SCALE);
+            if (pageIndex === 0) {
+                ctx2d.fillStyle = "#000000";
+                ctx2d.textAlign = "center";
+                ctx2d.font = "bold 34px sans-serif";
+                ctx2d.fillText(document.getElementById("song-title").value, logicalWidth / 2, 40);
+            }
+        } else {
+            context.setViewBox(0, 0, logicalWidth, logicalHeight);
+        }
 
         pageLines.forEach((lineGroup, lineIndex) => {
-            let startY = lineIndex * lineSpacing + topMargin;
+            let startY = lineIndex * lineSpacing + topMargin + (isExport && pageIndex === 0 ? 30 : 0);
             let lineX = 40; 
             let mWidths = lineLayouts[lineIndex];
             
@@ -286,7 +287,7 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: [clefName === 'bass' ? "d/3" : "b/4"], duration: "wr", clef: clefName });
+                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName });
                         ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
@@ -294,9 +295,10 @@ function renderScore() {
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        let keys = d.isRest ? [clefName === 'bass' ? "d/3" : "b/4"] : d.pitches;
-                        let note = new StaveNote({ keys: keys, duration: vexDur + (d.isRest ? "r" : ""), clef: clefName, auto_stem: true });
+                        // 🚨 終極修復：無論咩譜號，休止符一律用標準座標 b/4 置中！
+                        let keys = d.isRest ? ["b/4"] : d.pitches;
                         
+                        let note = new StaveNote({ keys: keys, duration: vexDur + (d.isRest ? "r" : ""), clef: clefName, auto_stem: true });
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
                         note.setAttribute('class', 'vf-stavenote'); 
                         
@@ -328,7 +330,6 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                // 🚨 改用 formatToStave 完美解決拍子比例分布唔平均嘅問題！
                 new Formatter().joinVoices(voices).formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
@@ -337,6 +338,20 @@ function renderScore() {
             });
         });
     });
+
+    if (isExport) {
+        const canvases = targetContainer.querySelectorAll("canvas");
+        if (canvases.length === 0) return;
+        let tH = 0, mW = 0;
+        canvases.forEach(c => { tH += c.height; if (c.width > mW) mW = c.width; });
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = mW; finalCanvas.height = tH;
+        const ctx = finalCanvas.getContext("2d");
+        let cY = 0;
+        canvases.forEach(c => { ctx.drawImage(c, 0, cY); cY += c.height; });
+        document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
+        document.getElementById('export-modal').style.display = 'flex';
+    }
 }
 
 function processPitch(basePitch, shiftVal, acc) {
@@ -388,8 +403,9 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 
         if (!isRestMode) {
             await Tone.start();
-            let synth = getSynth();
-            synth.triggerAttackRelease(toTonePitch(basePitch), "8n");
+            if (currentSynth) currentSynth.dispose();
+            currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
+            currentSynth.triggerAttackRelease(toTonePitch(basePitch), "8n");
         }
     });
 });
@@ -399,8 +415,8 @@ document.getElementById('clear-btn').addEventListener('click', () => { tracks = 
 
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
-    let synth = getSynth();
-    synth.releaseAll();
+    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); }
+    currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
     Tone.Transport.cancel();
     
     let now = Tone.now();
@@ -409,17 +425,74 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
         tracks[trackName].forEach(data => {
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
             let addTime = getBeatValue(data.duration) * 0.5; 
-            if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
+            if (!data.isRest) currentSynth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
             tNow += addTime;
         });
     });
 });
 
 document.getElementById('stop-btn').addEventListener('click', () => {
-    if (globalSynth) { globalSynth.releaseAll(); }
+    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); currentSynth = null; }
 });
 
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
+
+document.getElementById('export-btn').addEventListener('click', () => {
+    if (tracks.treble.length === 0 && tracks.bass.length === 0) { alert("請先輸入音符！"); return; }
+    
+    const svgs = document.querySelectorAll("#score-wrapper svg");
+    if (svgs.length === 0) return;
+
+    let totalHeight = 0;
+    let maxWidth = 0;
+    let images = [];
+    let loadedCount = 0;
+    const title = document.getElementById("song-title").value;
+
+    svgs.forEach((svg) => {
+        if (!svg.getAttribute("xmlns")) svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const xml = new XMLSerializer().serializeToString(svg);
+        const svg64 = btoa(unescape(encodeURIComponent(xml)));
+        const img = new Image();
+
+        const svgWidth = parseInt(svg.getAttribute("width")) || svg.clientWidth || 800;
+        const svgHeight = parseInt(svg.getAttribute("height")) || svg.clientHeight || 200;
+
+        img.onload = () => {
+            loadedCount++;
+            if (loadedCount === svgs.length) {
+                const canvas = document.createElement("canvas");
+                canvas.width = maxWidth + 60;
+                canvas.height = totalHeight + 120;
+                const ctx = canvas.getContext("2d");
+
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#000000";
+                ctx.textAlign = "center";
+                ctx.font = "bold 44px sans-serif";
+                ctx.fillText(title, canvas.width / 2, 70);
+
+                let currentY = 100;
+                images.forEach(obj => {
+                    ctx.drawImage(obj.img, 30, currentY, obj.width, obj.height);
+                    currentY += obj.height;
+                });
+
+                document.getElementById('export-image-result').src = canvas.toDataURL("image/png");
+                document.getElementById('export-modal').style.display = 'flex';
+            }
+        };
+        img.src = 'data:image/svg+xml;base64,' + svg64;
+        images.push({ img: img, width: svgWidth, height: svgHeight });
+        totalHeight += svgHeight;
+        if (svgWidth > maxWidth) maxWidth = svgWidth;
+    });
+});
+
+document.getElementById('close-modal-btn').addEventListener('click', () => {
+    document.getElementById('export-modal').style.display = 'none';
+});
 
 // 初始化
 updateClefUI();
