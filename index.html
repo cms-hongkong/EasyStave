@@ -10,6 +10,7 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- 頂部資訊區 -->
         <header class="top-bar">
             <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="卡雅音樂教室彩虹樂譜">
             <div class="controls-row">
@@ -35,11 +36,11 @@
                 <button id="stop-btn" class="action-btn" style="background:#ff3b30; color:white;">⏹️ 停止</button>
                 <button id="undo-btn" class="action-btn">↩ 復原</button>
                 <button id="clear-btn" class="action-btn">🗑️ 清除</button>
-                <button id="export-pdf-btn" class="action-btn" style="background:#ff9500; color:white;">🖨️ PDF</button>
-                <button id="export-btn" class="action-btn" style="background:#007aff; color:white;">📥 圖片</button>
+                <button id="export-pdf-btn" class="action-btn" style="background:#ff9500; color:white;">🖨️ PDF 列印</button>
             </div>
         </header>
 
+        <!-- 工具列 -->
         <section class="tools-bar">
             <div class="tool-group">
                 <button class="dur-btn" data-dur="w">全音</button>
@@ -91,6 +92,7 @@
             </div>
         </section>
 
+        <!-- 琴鍵 -->
         <section class="keyboard-bar">
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/4">C</button>
             <button class="note-btn" style="background:#ffe6cc; color:#cc6600;" data-note="d/4">D</button>
@@ -102,19 +104,10 @@
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高C</button>
         </section>
 
+        <!-- 樂譜顯示區 -->
         <main class="score-container" id="score-wrapper"></main>
     </div>
-
-    <div id="export-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding: 20px;">
-        <div style="background:white; padding:15px; border-radius:12px; text-align:center; max-width:100%; max-height:95%; overflow-y:auto;">
-            <h3 style="margin-bottom:10px; color:#333; font-size:16px;">👇 請右鍵或長按下方圖片並選擇「儲存圖片」</h3>
-            <img id="export-image-result" style="max-width:100%; border:1px solid #ccc; margin-bottom:15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-            <br>
-            <button id="close-modal-btn" class="action-btn" style="padding:10px 25px; background:#ff4d4d; color:white; border:none; font-size:16px; border-radius:8px;">關閉並返回</button>
-        </div>
-    </div>
     
-    <div id="hidden-export-container" style="position:absolute; top:-9999px; left:-9999px; display:block; width:2000px;"></div>
     <script src="script.js"></script>
 </body>
 </html>
