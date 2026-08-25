@@ -182,11 +182,6 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 統一畀返第三線基準佢
-function getRestKey(clef) {
-    return clef === 'bass' ? "d/3" : "b/4";
-}
-
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
@@ -291,18 +286,18 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
-                    // 空白小節：放入幽靈全休止符
+                    // 🌟 魔法坐標：所有休止符一律設定為 "b/4"，交由 VexFlow 原生引擎處理！
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: [getRestKey(clefName)], duration: "wr", clef: clefName, auto_stem: false });
-                        // 🌟 物理推高一格 (10px)，準確掛上第四線！
-                        ghost.setYShift(-10);
+                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName, auto_stem: false });
+                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        let keys = d.isRest ? [getRestKey(clefName)] : d.pitches;
+                        // 🌟 魔法坐標：所有休止符一律設定為 "b/4"
+                        let keys = d.isRest ? ["b/4"] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
@@ -310,11 +305,6 @@ function renderScore() {
                             clef: clefName, 
                             auto_stem: !d.isRest 
                         });
-                        
-                        // 🌟 手動輸入嘅全休止符：物理推高一格 (10px)，準確掛上第四線！
-                        if (d.isRest && vexDur === 'w') {
-                            note.setYShift(-10);
-                        }
                         
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
                         note.setAttribute('class', 'vf-stavenote'); 
