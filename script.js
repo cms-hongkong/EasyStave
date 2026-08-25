@@ -210,7 +210,7 @@ function renderScore() {
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
     const SCALE = 1.6; 
-    // 🌟 修正：拉闊大譜表行距 (由 250 加闊至 290)，避免字體重疊
+    // 🌟 保持拉闊咗嘅大譜表行距 (290)
     const lineSpacing = clef === 'grand' ? 290 : 150;
     const topMargin = 50;
 
@@ -273,7 +273,7 @@ function renderScore() {
                 
                 let staveBass;
                 if (clef === 'grand') {
-                    // 🌟 修正：拉闊大譜表上下行距離 (由 110 加闊至 150)，提供充裕空間給中央C與指法
+                    // 🌟 保持拉闊咗嘅大譜表上下距離 (150)
                     staveBass = new Stave(mX, startY + 150, mW);
                     if (isFirstInLine) staveBass.addClef("bass");
                     if (isFirstMeasure) staveBass.addTimeSignature(timeSig);
@@ -294,6 +294,8 @@ function renderScore() {
                     
                     if (!dataArr || dataArr.length === 0) {
                         let ghost = new StaveNote({ keys: [getRestKey(clefName)], duration: "wr", clef: clefName, auto_stem: false });
+                        // 🚨 加返！將空白小節嘅全休止符推高一格掛喺第四線
+                        ghost.setYShift(-10);
                         notes.push(ghost);
                         return notes;
                     }
@@ -308,6 +310,11 @@ function renderScore() {
                             clef: clefName, 
                             auto_stem: !d.isRest 
                         });
+                        
+                        // 🚨 加返！將手動輸入嘅全休止符推高一格掛喺第四線
+                        if (d.isRest && vexDur === 'w') {
+                            note.setYShift(-10);
+                        }
                         
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
                         note.setAttribute('class', 'vf-stavenote'); 
