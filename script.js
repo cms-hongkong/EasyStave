@@ -130,15 +130,26 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
-// 🚨 附加樣式 (標記附點，留待排版後處理)
+// 🚨 附加樣式 (偷龍轉鳳：修復 2分休止符防撞 Bug)
 function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) {
         let dot = new Dot();
         let vexDur = data.duration.replace('d', '');
         
-        // 將 2分休止符嘅附點加上隱藏標記，避免喺呢個階段郁佢引發排版防撞
+        // 針對附點 2分休止符嘅神級排版修復
         if (data.isRest && vexDur === 'h') {
-            dot.isHalfRestDot = true; 
+            dot.setYShift(-14); // 將附點微調至完美嘅右上角 (低啲啲)
+            dot.setXShift(2);   // 微微向右移開少少
+            
+            // 強制 Override 畫圖功能：將被系統自作聰明推高咗嘅休止符，拉返落嚟 10px (一格)
+            const originalDraw = note.draw.bind(note);
+            note.draw = function() {
+                const ctx = this.getContext();
+                ctx.save();
+                ctx.translate(0, 10); // 強制向下推 10px
+                originalDraw();
+                ctx.restore();
+            };
         }
         note.addModifier(dot, 0);
     }
@@ -349,25 +360,8 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                // 1. 先進行排版 (Formatter)，確立休止符喺第三線唔會移位
                 new Formatter().joinVoices(voices).formatToStave(voices, stave);
                 
-                // 🚨 2. 偷龍轉鳳：排版完成後，畫出嚟之前，強行將標記咗嘅附點推高 10px！
-                let shiftDots = (notesArr) => {
-                    notesArr.forEach(n => {
-                        if (n.modifiers) {
-                            n.modifiers.forEach(m => {
-                                if (m.isHalfRestDot) {
-                                    m.setYShift(-10); // 完美推去右上角
-                                }
-                            });
-                        }
-                    });
-                };
-                shiftDots(tNotes);
-                shiftDots(bNotes);
-                
-                // 3. 畫出樂譜
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
                 else if (clef === 'bass') { voices[0].draw(context, stave); beamsBass.forEach(b => b.setContext(context).draw()); }
