@@ -11,6 +11,12 @@ let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
 
+// 同步更新標題到列印區
+document.getElementById('song-title').addEventListener('input', function() {
+    let printTitles = document.querySelectorAll('.print-title');
+    printTitles.forEach(t => t.innerText = this.value);
+});
+
 // --- UI 綁定 ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -32,7 +38,6 @@ document.getElementById("toggle-color").addEventListener("click", function() {
     renderScore();
 });
 
-// 🚨 統一的顯示更新邏輯
 function updateClefUI() {
     const clefValue = document.getElementById('clef-select').value;
     const trackSelect = document.getElementById('track-select');
@@ -168,7 +173,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-function renderScore(isExport = false) {
+function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
     const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
@@ -195,8 +200,7 @@ function renderScore(isExport = false) {
     const lineSpacing = clef === 'grand' ? 250 : 150;
     const topMargin = 50;
 
-    let targetContainer = isExport ? document.getElementById("hidden-export-container") : scoreWrapper;
-    targetContainer.innerHTML = "";
+    scoreWrapper.innerHTML = "";
 
     pages.forEach((pageLines, pageIndex) => {
         let maxLineWidth = 0;
@@ -221,38 +225,23 @@ function renderScore(isExport = false) {
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         
-        if (pageIndex === 0 && (!isExport)) {
-            let titleDiv = document.createElement("h1");
+        // 加入專門畀 PDF 顯示嘅標題
+        if (pageIndex === 0) {
+            let titleDiv = document.createElement("div");
+            titleDiv.className = "print-title";
             titleDiv.innerText = document.getElementById("song-title").value;
-            titleDiv.style.textAlign = "center";
-            titleDiv.style.marginBottom = "20px";
-            titleDiv.style.display = "none"; 
             containerDiv.appendChild(titleDiv);
         }
-        targetContainer.appendChild(containerDiv);
+        
+        scoreWrapper.appendChild(containerDiv);
 
-        const backend = isExport ? Renderer.Backends.CANVAS : Renderer.Backends.SVG;
-        const renderer = new Renderer(containerDiv, backend);
+        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
         const context = renderer.getContext();
-        
-        if (isExport) {
-            context.scale(SCALE, SCALE);
-            const ctx2d = context.canvasContext || containerDiv.querySelector("canvas").getContext("2d");
-            ctx2d.fillStyle = "#ffffff";
-            ctx2d.fillRect(0, 0, logicalWidth * SCALE, logicalHeight * SCALE);
-            if (pageIndex === 0) {
-                ctx2d.fillStyle = "#000000";
-                ctx2d.textAlign = "center";
-                ctx2d.font = "bold 34px sans-serif";
-                ctx2d.fillText(document.getElementById("song-title").value, logicalWidth / 2, 40);
-            }
-        } else {
-            context.setViewBox(0, 0, logicalWidth, logicalHeight);
-        }
+        context.setViewBox(0, 0, logicalWidth, logicalHeight);
 
         pageLines.forEach((lineGroup, lineIndex) => {
-            let startY = lineIndex * lineSpacing + topMargin + (isExport && pageIndex === 0 ? 30 : 0);
+            let startY = lineIndex * lineSpacing + topMargin;
             let lineX = 40; 
             let mWidths = lineLayouts[lineIndex];
             
@@ -339,20 +328,6 @@ function renderScore(isExport = false) {
             });
         });
     });
-
-    if (isExport) {
-        const canvases = targetContainer.querySelectorAll("canvas");
-        if (canvases.length === 0) return;
-        let tH = 0, mW = 0;
-        canvases.forEach(c => { tH += c.height; if (c.width > mW) mW = c.width; });
-        const finalCanvas = document.createElement("canvas");
-        finalCanvas.width = mW; finalCanvas.height = tH;
-        const ctx = finalCanvas.getContext("2d");
-        let cY = 0;
-        canvases.forEach(c => { ctx.drawImage(c, 0, cY); cY += c.height; });
-        document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
-        document.getElementById('export-modal').style.display = 'flex';
-    }
 }
 
 function processPitch(basePitch, shiftVal, acc) {
@@ -436,16 +411,8 @@ document.getElementById('stop-btn').addEventListener('click', () => {
     if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); currentSynth = null; }
 });
 
+// 觸發列印 (PDF 匯出)
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
-document.getElementById('export-btn').addEventListener('click', () => {
-    if (tracks.treble.length === 0 && tracks.bass.length === 0) { alert("請先輸入音符！"); return; }
-    renderScore(true);
-});
-
-document.getElementById('close-modal-btn').addEventListener('click', () => {
-    document.getElementById('export-modal').style.display = 'none';
-});
-
-// 🚨 終極修復：確保網頁一載入，即刻觸發一次「大譜表」檢查，令選項 100% 顯示
+// 初始化
 updateClefUI();
