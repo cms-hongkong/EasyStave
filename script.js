@@ -3,14 +3,13 @@ const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, 
 let scoreData = []; 
 const colorMap = { "c": "#FF0000", "d": "#FFA500", "e": "#E6E600", "f": "#00FF00", "g": "#ADD8E6", "a": "#0000FF", "b": "#800080" };
 const scoreWrapper = document.getElementById("score-wrapper");
-let currentSynth = null; // 用於控制停止播放
+let currentSynth = null; 
 
 let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
-let editingIndex = -1; // -1 代表新增模式
+let editingIndex = -1; 
 
-// --- UI 綁定 ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -64,7 +63,7 @@ document.getElementById('edit-next').addEventListener('click', () => {
     updateEditStatus();
 });
 
-// --- 附加音名、指法與鉛筆圖示 ---
+// --- 附加樣式 (🚨 完美修復音符柄 Stem 唔見咗嘅 Bug) ---
 function applyModifiers(note, pitches, fingerings, isRest, isEditing) {
     if (note.getDuration().includes("d")) note.addModifier(new Dot(), 0);
     
@@ -74,6 +73,13 @@ function applyModifiers(note, pitches, fingerings, isRest, isEditing) {
     }
 
     if (!isRest) {
+        // 先將成個音符 (包括 Stem 柄) 設定為第一個音嘅顏色
+        if (isColorMode) {
+            const firstPitchName = pitches[0].charAt(0).toUpperCase();
+            const baseColor = colorMap[firstPitchName.toLowerCase()] || "#000000";
+            note.setStyle({ fillStyle: baseColor, strokeStyle: baseColor });
+        }
+
         pitches.forEach((p, idx) => {
             const pitchName = p.charAt(0).toUpperCase();
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
@@ -82,6 +88,8 @@ function applyModifiers(note, pitches, fingerings, isRest, isEditing) {
                 const fingerAnno = new Annotation(fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.TOP);
                 note.addModifier(fingerAnno, idx);
             }
+            
+            // 再針對和弦內唔同嘅音頭 (Notehead) 逐粒上色
             if (isColorMode) {
                 const color = colorMap[pitchName.toLowerCase()] || "#000000";
                 note.setKeyStyle(idx, { fillStyle: color, strokeStyle: color });
@@ -90,7 +98,7 @@ function applyModifiers(note, pitches, fingerings, isRest, isEditing) {
     }
 }
 
-// --- 核心渲染引擎 (支援動態闊度) ---
+// --- 核心渲染引擎 ---
 function renderScore(isExport = false) {
     const clef = document.getElementById("clef-select").value;
     const isGrand = clef === "grand";
@@ -102,7 +110,6 @@ function renderScore(isExport = false) {
     let currentMeasure = [];
     let currentBeats = 0;
     
-    // 將一維數據轉化為二維小節陣列，並保留全局索引供編輯模式使用
     scoreData.forEach((data, globalIdx) => {
         let beatValue = data.duration === 'w' ? 4 : data.duration === 'hd' ? 3 : data.duration === 'h' ? 2 : data.duration === 'qd' ? 1.5 : data.duration === 'q' ? 1 : 0.5;
         
@@ -111,7 +118,6 @@ function renderScore(isExport = false) {
             currentMeasure = [];
             currentBeats = 0;
         }
-        
         currentMeasure.push({ ...data, globalIdx: globalIdx });
         currentBeats += beatValue;
         
@@ -122,7 +128,7 @@ function renderScore(isExport = false) {
         }
     });
     if (currentMeasure.length > 0) measures.push(currentMeasure);
-    if (measures.length === 0) measures.push([]); // 防崩潰：保證最少有一小節
+    if (measures.length === 0) measures.push([]);
 
     let lines = [];
     for (let i = 0; i < measures.length; i += 4) {
@@ -142,7 +148,6 @@ function renderScore(isExport = false) {
     targetContainer.innerHTML = "";
 
     pages.forEach((pageLines, pageIndex) => {
-        // 動態計算每一行最適合嘅總闊度
         let maxLineWidth = 0;
         let lineLayouts = [];
 
@@ -150,8 +155,8 @@ function renderScore(isExport = false) {
             let currentLineWidth = 20;
             let mWidths = [];
             lineMeasures.forEach((measureData, mIndex) => {
-                // 完美修復迫爆小節：根據音符數量動態計算小節闊度
-                let requiredWidth = Math.max(160, measureData.length * 45 + (mIndex === 0 ? 60 : 0));
+                // 🚨 修復錯位：大幅增加小節基礎闊度，保證大和弦唔會撞小節線
+                let requiredWidth = Math.max(220, measureData.length * 60 + (mIndex === 0 ? 60 : 0));
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
@@ -159,14 +164,13 @@ function renderScore(isExport = false) {
             if (currentLineWidth > maxLineWidth) maxLineWidth = currentLineWidth;
         });
 
-        const logicalWidth = Math.max(800, maxLineWidth + 50); // 畫布會跟隨內容變闊
+        const logicalWidth = Math.max(800, maxLineWidth + 50); 
         const logicalHeight = Math.max(200, pageLines.length * lineSpacing + topMargin + 40);
 
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         
         if (pageIndex === 0 && (!isExport)) {
-            // 只有打印時先顯示原生標題
             let titleDiv = document.createElement("h1");
             titleDiv.innerText = document.getElementById("song-title").value;
             titleDiv.style.textAlign = "center";
@@ -176,7 +180,6 @@ function renderScore(isExport = false) {
         }
         targetContainer.appendChild(containerDiv);
 
-        // 正式顯示用 SVG，隱藏匯出用 Canvas
         const backend = isExport ? Renderer.Backends.CANVAS : Renderer.Backends.SVG;
         const renderer = new Renderer(containerDiv, backend);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
@@ -332,7 +335,7 @@ function shiftOctave(pitchStr, shiftVal) {
     return `${parts[0]}/${newOct}`;
 }
 
-// --- 輸入與替換邏輯 ---
+// --- 輸入與替換邏輯 (🚨 加入防呆：自動取消和弦疊加) ---
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
         let basePitch = e.target.getAttribute('data-note'); 
@@ -340,7 +343,8 @@ document.querySelectorAll('.note-btn').forEach(btn => {
         const fingering = document.getElementById('fingering-select').value;
         const staffTarget = document.getElementById('staff-target-select').value; 
         const octaveShift = parseInt(document.getElementById('octave-select').value);
-        const isChordMode = document.getElementById('chord-mode').checked;
+        const chordCheckbox = document.getElementById('chord-mode');
+        const isChordMode = chordCheckbox.checked;
         
         basePitch = shiftOctave(basePitch, octaveShift);
         
@@ -353,19 +357,20 @@ document.querySelectorAll('.note-btn').forEach(btn => {
                 targetData.pitches.push(basePitch);
                 targetData.staffTargets.push(staffTarget);
                 targetData.fingerings.push(fingering);
+                
+                // 🚨 防呆機制：加完一粒和弦音，自動取消勾選，防止誤建超級大和弦
+                chordCheckbox.checked = false;
             } else {
-                alert("⚠️ 和弦疊加失敗：新音符必須與上一個音符的長度相同！");
+                alert("⚠️ 和弦疊加失敗：新音符必須與上一個音符的拍子長度相同！");
                 return;
             }
         } else {
             if (editingIndex !== -1) {
-                // 取代模式
                 scoreData[editingIndex] = newData;
                 editingIndex++;
                 if (editingIndex >= scoreData.length) editingIndex = -1;
                 updateEditStatus();
             } else {
-                // 新增模式
                 scoreData.push(newData);
             }
         }
@@ -417,7 +422,7 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => { wind
 document.getElementById('export-btn').addEventListener('click', () => {
     if (scoreData.length === 0) { alert("請先輸入音符！"); return; }
     
-    renderScore(true); // 觸發隱藏 Canvas 渲染
+    renderScore(true);
     
     setTimeout(() => {
         const canvases = document.querySelectorAll("#hidden-export-container canvas");
@@ -444,12 +449,11 @@ document.getElementById('export-btn').addEventListener('click', () => {
 
         document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
         document.getElementById('export-modal').style.display = 'flex';
-    }, 500); // 延遲確保 Canvas 渲染完成
+    }, 500); 
 });
 
 document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('export-modal').style.display = 'none';
 });
 
-// 啟動即畫
 renderScore();
