@@ -182,13 +182,8 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🚨 完美精準坐標，解決死機 Bug，並確保各休止符坐喺最標準嘅線上面
-function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        return dur === 'w' ? "f/3" : "d/3"; // 低音: 全休止符(F3 第四線)，其他(D3 第三線)
-    } else {
-        return dur === 'w' ? "d/5" : "b/4"; // 高音: 全休止符(D5 第四線)，其他(B4 第三線)
-    }
+function getRestKey(clef) {
+    return clef === 'bass' ? "d/3" : "b/4";
 }
 
 function renderScore() {
@@ -215,7 +210,8 @@ function renderScore() {
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
     const SCALE = 1.6; 
-    const lineSpacing = clef === 'grand' ? 250 : 150;
+    // 🌟 修正：拉闊大譜表行距 (由 250 加闊至 290)，避免字體重疊
+    const lineSpacing = clef === 'grand' ? 290 : 150;
     const topMargin = 50;
 
     scoreWrapper.innerHTML = "";
@@ -277,7 +273,8 @@ function renderScore() {
                 
                 let staveBass;
                 if (clef === 'grand') {
-                    staveBass = new Stave(mX, startY + 110, mW);
+                    // 🌟 修正：拉闊大譜表上下行距離 (由 110 加闊至 150)，提供充裕空間給中央C與指法
+                    staveBass = new Stave(mX, startY + 150, mW);
                     if (isFirstInLine) staveBass.addClef("bass");
                     if (isFirstMeasure) staveBass.addTimeSignature(timeSig);
                     staveBass.setContext(context).draw();
@@ -295,17 +292,15 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
-                    // 🚨 空白小節：使用正確的 全休止符 坐標
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
+                        let ghost = new StaveNote({ keys: [getRestKey(clefName)], duration: "wr", clef: clefName, auto_stem: false });
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        // 🚨 根據音符長度與譜號，決定正確坐標
-                        let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
+                        let keys = d.isRest ? [getRestKey(clefName)] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
@@ -345,8 +340,6 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                // 🚨 終極排版修復：使用 .format() 而唔係 .formatToStave()
-                // 咁樣可以防止 VexFlow 為咗避免高低音相撞而強行將高音休止符推高！
                 let formatter = new Formatter();
                 voices.forEach(v => formatter.joinVoices([v]));
                 formatter.format(voices, mW - 40);
