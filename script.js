@@ -182,6 +182,15 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 🚨 完美精準坐標，解決死機 Bug，並確保各休止符坐喺最標準嘅線上面
+function getRestKey(clef, dur) {
+    if (clef === 'bass') {
+        return dur === 'w' ? "f/3" : "d/3"; // 低音: 全休止符(F3 第四線)，其他(D3 第三線)
+    } else {
+        return dur === 'w' ? "d/5" : "b/4"; // 高音: 全休止符(D5 第四線)，其他(B4 第三線)
+    }
+}
+
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
@@ -286,18 +295,17 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
-                    // 🌟 魔法坐標：所有休止符一律設定為 "b/4"，交由 VexFlow 原生引擎處理！
+                    // 🚨 空白小節：使用正確的 全休止符 坐標
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName, auto_stem: false });
-                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
+                        let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        // 🌟 魔法坐標：所有休止符一律設定為 "b/4"
-                        let keys = d.isRest ? ["b/4"] : d.pitches;
+                        // 🚨 根據音符長度與譜號，決定正確坐標
+                        let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
@@ -337,7 +345,11 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                new Formatter().joinVoices(voices).formatToStave(voices, stave);
+                // 🚨 終極排版修復：使用 .format() 而唔係 .formatToStave()
+                // 咁樣可以防止 VexFlow 為咗避免高低音相撞而強行將高音休止符推高！
+                let formatter = new Formatter();
+                voices.forEach(v => formatter.joinVoices([v]));
+                formatter.format(voices, mW - 40);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
