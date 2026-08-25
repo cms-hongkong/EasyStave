@@ -10,7 +10,6 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- 頂部資訊區 -->
         <header class="top-bar">
             <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="卡雅音樂教室彩虹樂譜">
             <div class="controls-row">
@@ -37,10 +36,10 @@
                 <button id="undo-btn" class="action-btn">↩ 復原</button>
                 <button id="clear-btn" class="action-btn">🗑️ 清除</button>
                 <button id="export-pdf-btn" class="action-btn" style="background:#ff9500; color:white;">🖨️ PDF</button>
+                <button id="export-btn" class="action-btn" style="background:#007aff; color:white;">📥 圖片</button>
             </div>
         </header>
 
-        <!-- 工具列 -->
         <section class="tools-bar">
             <div class="tool-group">
                 <button class="dur-btn" data-dur="w">全音</button>
@@ -76,7 +75,6 @@
                 </label>
             </div>
 
-            <!-- 大譜表專用輸入位置 -->
             <div class="tool-group" id="grand-staff-target" style="display:none; width:100%; justify-content:center; background:#fff3cd; padding:6px 12px; border-radius:8px; border:2px solid #ffe69c; margin-top:5px;">
                 <span style="font-size:16px; font-weight:bold; color:#856404;">✍️ 目前寫入至:</span>
                 <select id="track-select" style="background:white; font-weight:bold; border:1px solid #ccc; border-radius:4px; padding:4px 8px; outline:none; font-size:16px; color:#d9534f; cursor:pointer; margin-left:10px;">
@@ -85,7 +83,6 @@
                 </select>
             </div>
 
-            <!-- 修改提示區 -->
             <div class="tool-group" id="edit-status-container" style="width:100%; background:#e6f2ff; padding:4px 10px; border-radius:8px; border:1px solid #b3d9ff; justify-content:center; margin-top:5px;">
                 <button id="edit-prev" class="action-btn" style="padding:2px 8px;">⬅️</button>
                 <span id="edit-status" style="font-size:14px; font-weight:bold; color:#333; margin:0 8px;">✨ 點選音符或按箭嘴修改</span>
@@ -94,7 +91,6 @@
             </div>
         </section>
 
-        <!-- 琴鍵 -->
         <section class="keyboard-bar">
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/4">C</button>
             <button class="note-btn" style="background:#ffe6cc; color:#cc6600;" data-note="d/4">D</button>
@@ -106,10 +102,19 @@
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/5">高C</button>
         </section>
 
-        <!-- 樂譜顯示區 -->
         <main class="score-container" id="score-wrapper"></main>
     </div>
+
+    <div id="export-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding: 20px;">
+        <div style="background:white; padding:15px; border-radius:12px; text-align:center; max-width:100%; max-height:95%; overflow-y:auto;">
+            <h3 style="margin-bottom:10px; color:#333; font-size:16px;">👇 請右鍵或長按下方圖片並選擇「儲存圖片」</h3>
+            <img id="export-image-result" style="max-width:100%; border:1px solid #ccc; margin-bottom:15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <br>
+            <button id="close-modal-btn" class="action-btn" style="padding:10px 25px; background:#ff4d4d; color:white; border:none; font-size:16px; border-radius:8px;">關閉並返回</button>
+        </div>
+    </div>
     
+    <div id="hidden-export-container" style="position:absolute; top:-9999px; left:-9999px; display:block; width:2000px;"></div>
     <script src="script.js"></script>
 </body>
 </html>
