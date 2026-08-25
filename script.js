@@ -24,6 +24,7 @@ document.getElementById('song-title').addEventListener('input', function() {
     printTitles.forEach(t => t.innerText = this.value);
 });
 
+// --- UI 綁定 ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -73,6 +74,7 @@ document.getElementById('track-select').addEventListener('change', function() {
 document.getElementById('lines-per-page').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 
+// --- ✏️ 雙重修改機制 ---
 function updateEditStatus() {
     const status = document.getElementById("edit-status");
     const cancelBtn = document.getElementById("cancel-edit-btn");
@@ -178,6 +180,17 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 🚨 核心座標運算：智能分配休止符位置
+function getRestKey(clef, dur) {
+    if (clef === 'bass') {
+        // 低音譜表：全休止符掛第4線(F3)，其他坐第3線(D3)
+        return dur === 'w' ? "f/3" : "d/3";
+    } else {
+        // 高音譜表：全休止符掛第4線(D5)，其他坐第3線(B4)
+        return dur === 'w' ? "d/5" : "b/4";
+    }
+}
+
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
@@ -281,11 +294,11 @@ function renderScore() {
 
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
-                    // 🚨 修正 1：幽靈音符休止符座標
-                    let defaultRestKey = clefName === 'bass' ? "d/3" : "b/4";
                     
+                    // 如果小節全空，加入幽靈全休止符撐起排版
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: [defaultRestKey], duration: "wr", clef: clefName, auto_stem: false });
+                        let ghostKey = getRestKey(clefName, 'w');
+                        let ghost = new StaveNote({ keys: [ghostKey], duration: "wr", clef: clefName, auto_stem: false });
                         ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
@@ -293,8 +306,8 @@ function renderScore() {
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        // 🚨 修正 2：實體休止符座標 (高音用 b/4，低音用 d/3)
-                        let keys = d.isRest ? [defaultRestKey] : d.pitches;
+                        // 🚨 根據休止符種類智能取用正確座標
+                        let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
@@ -358,6 +371,7 @@ function toTonePitch(pitchStr) {
     return toneNote.replace('n', ''); 
 }
 
+// --- 輸入與替換邏輯 ---
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
         let rawPitch = this.getAttribute('data-note'); 
