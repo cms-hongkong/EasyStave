@@ -182,13 +182,9 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🚨 終極排版：精準區分全休止符與其他休止符嘅高度
-function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        return dur === 'w' ? "f/3" : "d/3"; // 全休止符掛第4線，其他坐第3線
-    } else {
-        return dur === 'w' ? "d/5" : "b/4"; // 全休止符掛第4線，其他坐第3線
-    }
+// 統一畀返第三線基準佢
+function getRestKey(clef) {
+    return clef === 'bass' ? "d/3" : "b/4";
 }
 
 function renderScore() {
@@ -295,15 +291,18 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
+                    // 空白小節：放入幽靈全休止符
                     if (!dataArr || dataArr.length === 0) {
-                        let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
+                        let ghost = new StaveNote({ keys: [getRestKey(clefName)], duration: "wr", clef: clefName, auto_stem: false });
+                        // 🌟 物理推高一格 (10px)，準確掛上第四線！
+                        ghost.setYShift(-10);
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
+                        let keys = d.isRest ? [getRestKey(clefName)] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
@@ -311,6 +310,11 @@ function renderScore() {
                             clef: clefName, 
                             auto_stem: !d.isRest 
                         });
+                        
+                        // 🌟 手動輸入嘅全休止符：物理推高一格 (10px)，準確掛上第四線！
+                        if (d.isRest && vexDur === 'w') {
+                            note.setYShift(-10);
+                        }
                         
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
                         note.setAttribute('class', 'vf-stavenote'); 
@@ -343,9 +347,7 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                let formatter = new Formatter();
-                voices.forEach(v => formatter.joinVoices([v]));
-                formatter.formatToStave(voices, stave);
+                new Formatter().joinVoices(voices).formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
