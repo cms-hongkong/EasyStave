@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>卡雅音樂教室彩虹樂譜</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- 加入 ?v=final 強制瀏覽器讀取最新版 -->
+    <link rel="stylesheet" href="style.css?v=final">
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
@@ -42,7 +43,6 @@
 
         <!-- 工具列 -->
         <section class="tools-bar">
-            <!-- 🚨 已移除「附點2分」按鈕 -->
             <div class="tool-group">
                 <button class="dur-btn" data-dur="w">全音</button>
                 <button class="dur-btn" data-dur="h">2分</button>
@@ -107,6 +107,8 @@
         <!-- 樂譜顯示區 -->
         <main class="score-container" id="score-wrapper"></main>
     </div>
-    <script src="script.js"></script>
+    
+    <!-- 加入 ?v=final 強制讀取最新版 -->
+    <script src="script.js?v=final"></script>
 </body>
 </html>
