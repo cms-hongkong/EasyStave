@@ -3,7 +3,6 @@ body { background-color: #f0f0f5; color: #333; user-select: none; -webkit-user-s
 
 .app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-/* 防止工具列被切走 */
 .top-bar, .tools-bar, .keyboard-bar { flex-shrink: 0; z-index: 10; }
 
 .top-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px; align-items: center; }
@@ -18,8 +17,9 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 .dur-btn { background: #f0f0f0; border: 1px solid #bbb; padding: 6px 10px; font-size: 13px; }
 .dur-btn.active { background: #ffcc00; border-color: #e6b800; font-weight: bold; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
 #rest-btn.active { background: #ff4d4d !important; color: white; font-weight: bold; }
-.checkbox-label { background: #d4edda; border: 1px solid #c3e6cb; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap; display: flex; align-items: center; }
-.checkbox-label input { transform: scale(1.1); margin-right: 4px; }
+.checkbox-label, .radio-label { display: flex; align-items: center; cursor: pointer; font-size: 13px; font-weight: bold; margin: 0 3px; }
+.checkbox-label { background: #d4edda; border: 1px solid #c3e6cb; padding: 5px 8px; border-radius: 6px; }
+.checkbox-label input, .radio-label input { transform: scale(1.1); margin-right: 4px; }
 
 .keyboard-bar { padding: 12px 10px; background: #fff; border-bottom: 2px solid #ccc; display: flex; justify-content: center; gap: 5px; overflow-x: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .note-btn { flex: 1; min-width: 40px; max-width: 70px; height: 55px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; box-shadow: 0 3px 5px rgba(0,0,0,0.15); cursor: pointer; touch-action: manipulation; }
@@ -29,14 +29,18 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 .score-page { display: inline-block; background: #fff; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); padding: 15px; margin-bottom: 25px; text-align: left; }
 .score-page svg, .score-page canvas { display: block; max-width: none !important; }
 
-/* 🌟 音符點擊特效 */
 .vf-stavenote { cursor: pointer; transition: opacity 0.2s; }
 .vf-stavenote:hover { opacity: 0.6; }
 
+/* 🖨️ PDF 完美列印設定 (防止切邊) */
 @media print {
-    body, .app-container { height: auto; overflow: visible; background: #fff; }
+    @page { margin: 10mm; }
+    body, .app-container { height: auto; overflow: visible; background: #fff; margin: 0; padding: 0; }
     .top-bar, .tools-bar, .keyboard-bar, #export-modal { display: none !important; }
     .score-container { padding: 0; background: #fff; display: block; text-align: left; overflow: visible; }
-    .score-page { box-shadow: none; margin: 0; padding: 0; page-break-after: always; display: block; width: 100%; }
+    
+    /* 核心防切斷保護：page-break-inside */
+    .score-page { box-shadow: none; margin: 0 0 20px 0; padding: 10px 0; page-break-after: always; page-break-inside: avoid; display: block; width: 100%; border: none; }
     .score-page:last-child { page-break-after: auto; }
+    .score-page svg { width: 100% !important; height: auto !important; }
 }
