@@ -130,26 +130,16 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
-// 🚨 附加樣式 (偷龍轉鳳：修復 2分休止符防撞 Bug)
+// 🚨 附加樣式 (移除了會導致死機的 draw override)
 function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) {
         let dot = new Dot();
         let vexDur = data.duration.replace('d', '');
         
-        // 針對附點 2分休止符嘅神級排版修復
+        // 微調附點位置，低啲啲
         if (data.isRest && vexDur === 'h') {
-            dot.setYShift(-14); // 將附點微調至完美嘅右上角 (低啲啲)
-            dot.setXShift(2);   // 微微向右移開少少
-            
-            // 強制 Override 畫圖功能：將被系統自作聰明推高咗嘅休止符，拉返落嚟 10px (一格)
-            const originalDraw = note.draw.bind(note);
-            note.draw = function() {
-                const ctx = this.getContext();
-                ctx.save();
-                ctx.translate(0, 10); // 強制向下推 10px
-                originalDraw();
-                ctx.restore();
-            };
+            dot.setYShift(-6); // 完美右上角
+            dot.setXShift(2);
         }
         note.addModifier(dot, 0);
     }
@@ -201,10 +191,19 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 精準休止符座標
-function getRestKey(clef, dur) {
-    if (clef === 'bass') return dur === 'w' ? "f/3" : "d/3";
-    else return dur === 'w' ? "d/5" : "b/4";
+// 🚨 核心座標運算：偷龍轉鳳！抵銷引擎嘅防撞推高機制
+function getRestKey(clef, dur, isDotted) {
+    if (clef === 'bass') {
+        if (dur === 'w') return "f/3"; // 全休止符掛第4線
+        // 引擎會將附點2分休止符推高一線，所以我哋特登畀低一線 (b/2)，等佢推高後啱啱好坐喺第3線 (d/3)
+        if (dur === 'h' && isDotted) return "b/2"; 
+        return "d/3";
+    } else {
+        if (dur === 'w') return "d/5"; // 全休止符掛第4線
+        // 高音同樣道理，畀低一線 (g/4)，等佢推高後啱啱好坐喺第3線 (b/4)
+        if (dur === 'h' && isDotted) return "g/4"; 
+        return "b/4";
+    }
 }
 
 function renderScore() {
@@ -312,15 +311,17 @@ function renderScore() {
                     let notes = [];
                     
                     if (!dataArr || dataArr.length === 0) {
-                        let ghostKey = getRestKey(clefName, 'w');
+                        let ghostKey = getRestKey(clefName, 'w', false);
                         let ghost = new StaveNote({ keys: [ghostKey], duration: "wr", clef: clefName, auto_stem: false });
+                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
+                        let isDotted = d.duration.includes('d');
                         let vexDur = d.duration.replace('d', ''); 
-                        let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
+                        let keys = d.isRest ? [getRestKey(clefName, vexDur, isDotted)] : d.pitches;
                         
                         let note = new StaveNote({ 
                             keys: keys, 
