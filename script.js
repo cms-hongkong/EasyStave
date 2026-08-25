@@ -1,7 +1,6 @@
 const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, Voice, Beam, Accidental } = Vex.Flow;
 
 let tracks = { treble: [], bass: [] };
-// 預設寫入軌道：高音譜表時為 treble，低音譜表時為 bass
 let currentTrack = "treble";
 let editingIndex = -1;
 
@@ -33,72 +32,92 @@ document.getElementById("toggle-color").addEventListener("click", function() {
     renderScore();
 });
 
-// 🚨 譜號聯動：自動決定輸入軌道，並顯示/隱藏大譜表選項
-document.getElementById('clef-select').addEventListener('change', (e) => {
+// 🚨 統一的顯示更新邏輯
+function updateClefUI() {
+    const clefValue = document.getElementById('clef-select').value;
     const trackSelect = document.getElementById('track-select');
     const grandStaffContainer = document.getElementById('grand-staff-target');
     
-    if (e.target.value === 'grand') {
+    if (clefValue === 'grand') {
         grandStaffContainer.style.display = 'flex';
         trackSelect.disabled = false;
-        currentTrack = trackSelect.value === 'auto' ? 'treble' : trackSelect.value;
+        currentTrack = trackSelect.value;
     } else {
         grandStaffContainer.style.display = 'none';
         trackSelect.disabled = true;
-        currentTrack = e.target.value === 'treble' ? 'treble' : 'bass';
+        currentTrack = clefValue === 'treble' ? 'treble' : 'bass';
     }
-    editingIndex = -1; updateEditStatus(); renderScore();
-});
+    editingIndex = -1; 
+    updateEditStatus(); 
+    renderScore();
+}
+
+document.getElementById('clef-select').addEventListener('change', updateClefUI);
 
 document.getElementById('track-select').addEventListener('change', (e) => {
-    currentTrack = e.target.value === 'auto' ? 'treble' : e.target.value;
+    currentTrack = e.target.value;
     editingIndex = -1; updateEditStatus();
 });
 
 document.getElementById('lines-per-page').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 
-// --- ✏️ 點擊音符修改功能 ---
+// --- ✏️ 雙重修改機制 ---
 function updateEditStatus() {
     const status = document.getElementById("edit-status");
     const cancelBtn = document.getElementById("cancel-edit-btn");
     if (editingIndex === -1) {
-        status.innerText = "✨ 點擊音符可修改";
+        status.innerText = "✨ 點選音符或按箭嘴修改";
         status.style.color = "#333";
         cancelBtn.style.display = "none";
     } else {
         let tName = currentTrack === 'treble' ? '高音' : '低音';
-        status.innerText = `✏️ 修改中 (${tName} 第 ${editingIndex + 1} 音)`;
+        status.innerText = `✏️ 修改 (${tName} 第 ${editingIndex + 1} 音)`;
         status.style.color = "#007aff";
         cancelBtn.style.display = "inline-block";
     }
     renderScore();
 }
 
+document.getElementById('edit-prev').addEventListener('click', () => {
+    let trackData = tracks[currentTrack];
+    if (trackData.length === 0) return;
+    if (editingIndex === -1) editingIndex = trackData.length - 1;
+    else if (editingIndex > 0) editingIndex--;
+    updateEditStatus();
+});
+
+document.getElementById('edit-next').addEventListener('click', () => {
+    let trackData = tracks[currentTrack];
+    if (trackData.length === 0 || editingIndex === -1) return;
+    if (editingIndex < trackData.length - 1) editingIndex++;
+    else editingIndex = -1;
+    updateEditStatus();
+});
+
 document.getElementById('cancel-edit-btn').addEventListener('click', () => {
     editingIndex = -1; updateEditStatus();
 });
 
 scoreWrapper.addEventListener('click', (e) => {
-    let el = e.target.closest('.vf-stavenote');
-    if (el) {
-        let id = el.getAttribute('id');
-        if (id && id.startsWith('vf-')) {
-            let parts = id.split('-'); 
+    let current = e.target;
+    while (current && current !== scoreWrapper) {
+        if (current.id && current.id.startsWith('vf-')) {
+            let parts = current.id.split('-'); 
             if (parts.length === 3 && !isNaN(parseInt(parts[2]))) {
                 currentTrack = parts[1];
-                // 如果是大譜表模式，自動切換下拉選單顯示
                 if (document.getElementById('clef-select').value === 'grand') {
                     document.getElementById('track-select').value = currentTrack;
                 }
                 editingIndex = parseInt(parts[2]);
                 updateEditStatus();
             }
+            return;
         }
+        current = current.parentNode;
     }
 });
 
-// --- 附加樣式 (修復附點顯示) ---
 function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) note.addModifier(new Dot(), 0);
     
@@ -149,8 +168,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 核心渲染
-function renderScore() {
+function renderScore(isExport = false) {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
     const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
@@ -177,7 +195,8 @@ function renderScore() {
     const lineSpacing = clef === 'grand' ? 250 : 150;
     const topMargin = 50;
 
-    scoreWrapper.innerHTML = "";
+    let targetContainer = isExport ? document.getElementById("hidden-export-container") : scoreWrapper;
+    targetContainer.innerHTML = "";
 
     pages.forEach((pageLines, pageIndex) => {
         let maxLineWidth = 0;
@@ -201,16 +220,40 @@ function renderScore() {
 
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
-        scoreWrapper.appendChild(containerDiv);
+        
+        if (pageIndex === 0 && (!isExport)) {
+            let titleDiv = document.createElement("h1");
+            titleDiv.innerText = document.getElementById("song-title").value;
+            titleDiv.style.textAlign = "center";
+            titleDiv.style.marginBottom = "20px";
+            titleDiv.style.display = "none"; 
+            containerDiv.appendChild(titleDiv);
+        }
+        targetContainer.appendChild(containerDiv);
 
-        const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
+        const backend = isExport ? Renderer.Backends.CANVAS : Renderer.Backends.SVG;
+        const renderer = new Renderer(containerDiv, backend);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
         const context = renderer.getContext();
-        context.setViewBox(0, 0, logicalWidth, logicalHeight);
+        
+        if (isExport) {
+            context.scale(SCALE, SCALE);
+            const ctx2d = context.canvasContext || containerDiv.querySelector("canvas").getContext("2d");
+            ctx2d.fillStyle = "#ffffff";
+            ctx2d.fillRect(0, 0, logicalWidth * SCALE, logicalHeight * SCALE);
+            if (pageIndex === 0) {
+                ctx2d.fillStyle = "#000000";
+                ctx2d.textAlign = "center";
+                ctx2d.font = "bold 34px sans-serif";
+                ctx2d.fillText(document.getElementById("song-title").value, logicalWidth / 2, 40);
+            }
+        } else {
+            context.setViewBox(0, 0, logicalWidth, logicalHeight);
+        }
 
         pageLines.forEach((lineGroup, lineIndex) => {
-            let startY = lineIndex * lineSpacing + topMargin;
-            let lineX = 40; // 移右 40px 防止大括號裁走
+            let startY = lineIndex * lineSpacing + topMargin + (isExport && pageIndex === 0 ? 30 : 0);
+            let lineX = 40; 
             let mWidths = lineLayouts[lineIndex];
             
             lineGroup.forEach((measureGroup, mIndex) => {
@@ -296,6 +339,20 @@ function renderScore() {
             });
         });
     });
+
+    if (isExport) {
+        const canvases = targetContainer.querySelectorAll("canvas");
+        if (canvases.length === 0) return;
+        let tH = 0, mW = 0;
+        canvases.forEach(c => { tH += c.height; if (c.width > mW) mW = c.width; });
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = mW; finalCanvas.height = tH;
+        const ctx = finalCanvas.getContext("2d");
+        let cY = 0;
+        canvases.forEach(c => { ctx.drawImage(c, 0, cY); cY += c.height; });
+        document.getElementById('export-image-result').src = finalCanvas.toDataURL("image/png");
+        document.getElementById('export-modal').style.display = 'flex';
+    }
 }
 
 function processPitch(basePitch, shiftVal, acc) {
@@ -381,61 +438,14 @@ document.getElementById('stop-btn').addEventListener('click', () => {
 
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
-// 🚨 終極 Blob URL 截圖技術 (保證 100% 匯出成功)
 document.getElementById('export-btn').addEventListener('click', () => {
-    const svgs = document.querySelectorAll("#score-wrapper svg");
-    if (svgs.length === 0) { alert("請先輸入音符！"); return; }
-
-    let totalHeight = 0;
-    let maxWidth = 0;
-    let images = [];
-    let loadedCount = 0;
-    const title = document.getElementById("song-title").value;
-
-    svgs.forEach((svg) => {
-        const xml = new XMLSerializer().serializeToString(svg);
-        const blob = new Blob([xml], {type: 'image/svg+xml;charset=utf-8'});
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-
-        const svgWidth = parseInt(svg.getAttribute("width")) || svg.clientWidth;
-        const svgHeight = parseInt(svg.getAttribute("height")) || svg.clientHeight;
-
-        img.onload = () => {
-            loadedCount++;
-            if (loadedCount === svgs.length) {
-                const canvas = document.createElement("canvas");
-                canvas.width = maxWidth + 60;
-                canvas.height = totalHeight + 120;
-                const ctx = canvas.getContext("2d");
-
-                ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#000000";
-                ctx.textAlign = "center";
-                ctx.font = "bold 44px sans-serif";
-                ctx.fillText(title, canvas.width / 2, 70);
-
-                let currentY = 100;
-                images.forEach(obj => {
-                    ctx.drawImage(obj.img, 30, currentY, obj.width, obj.height);
-                    currentY += obj.height;
-                    URL.revokeObjectURL(obj.img.src); // 清理記憶體
-                });
-
-                document.getElementById('export-image-result').src = canvas.toDataURL("image/png");
-                document.getElementById('export-modal').style.display = 'flex';
-            }
-        };
-        img.src = url;
-        images.push({ img: img, width: svgWidth, height: svgHeight });
-        totalHeight += svgHeight;
-        if (svgWidth > maxWidth) maxWidth = svgWidth;
-    });
+    if (tracks.treble.length === 0 && tracks.bass.length === 0) { alert("請先輸入音符！"); return; }
+    renderScore(true);
 });
 
 document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('export-modal').style.display = 'none';
 });
 
-renderScore();
+// 🚨 終極修復：確保網頁一載入，即刻觸發一次「大譜表」檢查，令選項 100% 顯示
+updateClefUI();
