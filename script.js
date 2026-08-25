@@ -130,15 +130,15 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
-// 🚨 附加樣式 (完美修復附點位置)
+// 🚨 附加樣式 (標記附點，留待排版後處理)
 function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) {
         let dot = new Dot();
         let vexDur = data.duration.replace('d', '');
         
-        // 修正：強行將 2分休止符嘅附點推高一格 (10px) 去右上角
+        // 將 2分休止符嘅附點加上隱藏標記，避免喺呢個階段郁佢引發排版防撞
         if (data.isRest && vexDur === 'h') {
-            dot.setYShift(-10);
+            dot.isHalfRestDot = true; 
         }
         note.addModifier(dot, 0);
     }
@@ -190,6 +190,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 精準休止符座標
 function getRestKey(clef, dur) {
     if (clef === 'bass') return dur === 'w' ? "f/3" : "d/3";
     else return dur === 'w' ? "d/5" : "b/4";
@@ -299,7 +300,6 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
-                    // 🚨 修正：移除隱形設定，令全休止符正常顯示於大譜表空白小節
                     if (!dataArr || dataArr.length === 0) {
                         let ghostKey = getRestKey(clefName, 'w');
                         let ghost = new StaveNote({ keys: [ghostKey], duration: "wr", clef: clefName, auto_stem: false });
@@ -349,8 +349,25 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
+                // 1. 先進行排版 (Formatter)，確立休止符喺第三線唔會移位
                 new Formatter().joinVoices(voices).formatToStave(voices, stave);
                 
+                // 🚨 2. 偷龍轉鳳：排版完成後，畫出嚟之前，強行將標記咗嘅附點推高 10px！
+                let shiftDots = (notesArr) => {
+                    notesArr.forEach(n => {
+                        if (n.modifiers) {
+                            n.modifiers.forEach(m => {
+                                if (m.isHalfRestDot) {
+                                    m.setYShift(-10); // 完美推去右上角
+                                }
+                            });
+                        }
+                    });
+                };
+                shiftDots(tNotes);
+                shiftDots(bNotes);
+                
+                // 3. 畫出樂譜
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
                 else if (clef === 'bass') { voices[0].draw(context, stave); beamsBass.forEach(b => b.setContext(context).draw()); }
