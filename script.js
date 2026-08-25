@@ -130,7 +130,6 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
-// 🚨 徹底移除了容易出 Bug 嘅排版修改，還原穩定
 function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) {
         note.addModifier(new Dot(), 0);
@@ -183,7 +182,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🚨 回歸最標準的休止符座標，由 VexFlow 自動判定最佳位置
+// 🚨 統一回歸 VexFlow 最標準之休止符座標！
 function getRestKey(clef) {
     return clef === 'bass' ? "d/3" : "b/4";
 }
@@ -340,7 +339,10 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                new Formatter().joinVoices(voices).formatToStave(voices, stave);
+                // 🚨 終極突破防撞 Bug：分開排版高音及低音！保證休止符永遠唔會被引擎推高！
+                let formatter = new Formatter();
+                voices.forEach(v => formatter.joinVoices([v]));
+                formatter.formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
