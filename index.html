@@ -10,6 +10,7 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- 頂部資訊區 -->
         <header class="top-bar">
             <input type="text" id="song-title" placeholder="點擊輸入歌名..." value="卡雅音樂教室彩虹樂譜">
             <div class="controls-row">
@@ -40,6 +41,7 @@
             </div>
         </header>
 
+        <!-- 工具列 -->
         <section class="tools-bar">
             <div class="tool-group">
                 <button class="dur-btn" data-dur="w">全音</button>
@@ -48,7 +50,7 @@
                 <button class="dur-btn" data-dur="qd">附點4分</button>
                 <button class="dur-btn active" data-dur="q">4分</button>
                 <button class="dur-btn" data-dur="8">8分</button>
-                <button id="rest-btn" class="action-btn" style="background:#ffd6d6; margin-left:3px;">❌ 休止</button>
+                <button id="rest-btn" class="action-btn" style="background:#ffd6d6; margin-left:3px; padding:6px;">❌ 休止 (啟用後按琴鍵)</button>
             </div>
             
             <div class="tool-group">
@@ -68,23 +70,22 @@
                 </label>
             </div>
 
-            <div class="tool-group" id="grand-staff-target" style="display:none; background:#fff3cd; border:1px solid #ffe69c;">
-                <span style="font-size:13px; font-weight:bold; margin-left:5px;">寫入:</span>
-                <select id="staff-target-select" style="background:transparent; font-weight:bold; border:none; outline:none; font-size:13px;">
-                    <option value="auto">自動分配</option>
-                    <option value="treble">右手(高)</option>
-                    <option value="bass">左手(低)</option>
+            <!-- 獨立音軌選擇 (大譜表精髓) & 點擊修改提示 -->
+            <div class="tool-group" style="width:100%; justify-content:center; background:#fff3cd; padding:5px; border-radius:8px; border:1px solid #ffe69c;">
+                <span style="font-size:14px; font-weight:bold; color:#856404;">✍️ 輸入至:</span>
+                <select id="track-select" style="background:transparent; font-weight:bold; border:none; outline:none; font-size:14px; color:#856404;">
+                    <option value="treble">高音譜表 (右手)</option>
+                    <option value="bass" disabled>低音譜表 (左手)</option>
                 </select>
-            </div>
-
-            <div class="tool-group" style="background:#e6f2ff; border:1px solid #b3d9ff; border-radius:8px; padding:2px 5px;">
-                <button id="edit-prev" class="action-btn" style="padding:4px 8px;">⬅️</button>
-                <span id="edit-status" style="font-size:14px; font-weight:bold; min-width:90px; text-align:center;">新增模式</span>
-                <button id="edit-next" class="action-btn" style="padding:4px 8px;">➡️</button>
+                
+                <span style="margin: 0 10px; color:#ccc;">|</span>
+                
+                <span id="edit-status" style="font-size:14px; font-weight:bold; color:#333;">✨ 新增模式 (點擊樂譜音符可修改)</span>
+                <button id="cancel-edit-btn" class="action-btn" style="display:none; padding:2px 8px; font-size:12px; margin-left:5px;">取消修改</button>
             </div>
         </section>
 
-        <!-- 琴鍵移至此處 -->
+        <!-- 琴鍵 -->
         <section class="keyboard-bar">
             <button class="note-btn" style="background:#ffcccc; color:#cc0000;" data-note="c/4">C</button>
             <button class="note-btn" style="background:#ffe6cc; color:#cc6600;" data-note="d/4">D</button>
@@ -109,7 +110,10 @@
             <button id="close-modal-btn" class="action-btn" style="padding:10px 25px; background:#ff4d4d; color:white; border:none; font-size:16px; border-radius:8px;">關閉並返回</button>
         </div>
     </div>
-    <div id="hidden-export-container" style="display:none;"></div>
+    
+    <!-- 確保 Canvas 100% 運作嘅匯出專區 -->
+    <div id="hidden-export-container" style="position:absolute; top:-9999px; left:-9999px; visibility:hidden;"></div>
+    
     <script src="script.js"></script>
 </body>
 </html>
