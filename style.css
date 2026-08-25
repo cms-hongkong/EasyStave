@@ -32,7 +32,6 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 .vf-stavenote { cursor: pointer; transition: opacity 0.2s; }
 .vf-stavenote:hover { opacity: 0.6; }
 
-/* 🖨️ PDF 列印完美支援 */
 .print-title { display: none; } 
 
 @media print {
