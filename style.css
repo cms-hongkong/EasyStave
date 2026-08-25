@@ -27,29 +27,15 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 
 .score-container { flex-grow: 1; overflow: auto; padding: 20px; background: #d9dbde; text-align: center; -webkit-overflow-scrolling: touch; }
 .score-page { display: inline-block; background: #fff; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); padding: 15px; margin-bottom: 25px; text-align: left; }
-.score-page svg { display: block; max-width: none !important; }
+.score-page svg, .score-page canvas { display: block; max-width: none !important; }
 
 .vf-stavenote { cursor: pointer; transition: opacity 0.2s; }
 .vf-stavenote:hover { opacity: 0.6; }
 
-/* 🖨️ PDF 列印專用設定 */
-.print-title { display: none; } 
-
 @media print {
     @page { margin: 10mm; }
     body, .app-container { height: auto; overflow: visible; background: #fff; margin: 0; padding: 0; }
-    .top-bar, .tools-bar, .keyboard-bar { display: none !important; }
-    
-    .print-title { 
-        display: block !important; 
-        text-align: center; 
-        font-size: 32px; 
-        font-weight: bold; 
-        margin-bottom: 20px; 
-        color: #000;
-        font-family: sans-serif;
-    }
-
+    .top-bar, .tools-bar, .keyboard-bar, #export-modal { display: none !important; }
     .score-container { padding: 0; background: #fff; display: block; text-align: left; overflow: visible; }
     .score-page { box-shadow: none; margin: 0 0 20px 0; padding: 10px 0; page-break-after: always; page-break-inside: avoid; display: block; width: 100%; border: none; }
     .score-page:last-child { page-break-after: auto; }
