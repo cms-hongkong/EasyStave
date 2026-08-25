@@ -6,12 +6,20 @@ let editingIndex = -1;
 
 const colorMap = { "c": "#FF0000", "d": "#FFA500", "e": "#E6E600", "f": "#00FF00", "g": "#ADD8E6", "a": "#0000FF", "b": "#800080" };
 const scoreWrapper = document.getElementById("score-wrapper");
-let currentSynth = null; 
+
+// 🚨 解決手機無聲：全局共用一個 Synth，避免爆 Memory
+let globalSynth = null; 
+function getSynth() {
+    if (!globalSynth) {
+        globalSynth = new Tone.PolySynth(Tone.Synth, { volume: 8 }).toDestination();
+    }
+    return globalSynth;
+}
+
 let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
 
-// 同步更新標題到列印區
 document.getElementById('song-title').addEventListener('input', function() {
     let printTitles = document.querySelectorAll('.print-title');
     printTitles.forEach(t => t.innerText = this.value);
@@ -173,6 +181,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 🚨 核心渲染 (加入智能比例排版)
 function renderScore() {
     const clef = document.getElementById("clef-select").value;
     const timeSig = document.getElementById("time-select").value || "4/4";
@@ -225,7 +234,6 @@ function renderScore() {
         let containerDiv = document.createElement("div");
         containerDiv.className = "score-page";
         
-        // 加入專門畀 PDF 顯示嘅標題
         if (pageIndex === 0) {
             let titleDiv = document.createElement("div");
             titleDiv.className = "print-title";
@@ -320,7 +328,8 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                new Formatter().joinVoices(voices).format(voices, mW - 40);
+                // 🚨 改用 formatToStave 完美解決拍子比例分布唔平均嘅問題！
+                new Formatter().joinVoices(voices).formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
@@ -379,9 +388,8 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 
         if (!isRestMode) {
             await Tone.start();
-            if (currentSynth) currentSynth.dispose();
-            currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
-            currentSynth.triggerAttackRelease(toTonePitch(basePitch), "8n");
+            let synth = getSynth();
+            synth.triggerAttackRelease(toTonePitch(basePitch), "8n");
         }
     });
 });
@@ -391,8 +399,8 @@ document.getElementById('clear-btn').addEventListener('click', () => { tracks = 
 
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
-    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); }
-    currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
+    let synth = getSynth();
+    synth.releaseAll();
     Tone.Transport.cancel();
     
     let now = Tone.now();
@@ -401,17 +409,16 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
         tracks[trackName].forEach(data => {
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
             let addTime = getBeatValue(data.duration) * 0.5; 
-            if (!data.isRest) currentSynth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
+            if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
             tNow += addTime;
         });
     });
 });
 
 document.getElementById('stop-btn').addEventListener('click', () => {
-    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); currentSynth = null; }
+    if (globalSynth) { globalSynth.releaseAll(); }
 });
 
-// 觸發列印 (PDF 匯出)
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
 // 初始化
