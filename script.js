@@ -6,7 +6,15 @@ let editingIndex = -1;
 
 const colorMap = { "c": "#FF0000", "d": "#FFA500", "e": "#E6E600", "f": "#00FF00", "g": "#ADD8E6", "a": "#0000FF", "b": "#800080" };
 const scoreWrapper = document.getElementById("score-wrapper");
-let currentSynth = null; 
+
+let globalSynth = null; 
+function getSynth() {
+    if (!globalSynth) {
+        globalSynth = new Tone.PolySynth(Tone.Synth, { volume: 8 }).toDestination();
+    }
+    return globalSynth;
+}
+
 let isColorMode = true;
 let selectedDuration = "q"; 
 let isRestMode = false;
@@ -16,7 +24,6 @@ document.getElementById('song-title').addEventListener('input', function() {
     printTitles.forEach(t => t.innerText = this.value);
 });
 
-// --- UI 安全綁定 (用 this 取代 e.target 防止點中子元素) ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -232,7 +239,6 @@ function renderScore() {
         
         scoreWrapper.appendChild(containerDiv);
 
-        // 專注使用 SVG，棄用 Canvas
         const renderer = new Renderer(containerDiv, Renderer.Backends.SVG);
         renderer.resize(logicalWidth * SCALE, logicalHeight * SCALE);
         const context = renderer.getContext();
@@ -275,9 +281,11 @@ function renderScore() {
 
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
+                    // 🚨 修正 1：幽靈音符休止符座標
+                    let defaultRestKey = clefName === 'bass' ? "d/3" : "b/4";
+                    
                     if (!dataArr || dataArr.length === 0) {
-                        // 🚨 修正：隱藏幽靈音符不計算符桿，防止崩潰
-                        let ghost = new StaveNote({ keys: ["b/4"], duration: "wr", clef: clefName, auto_stem: false });
+                        let ghost = new StaveNote({ keys: [defaultRestKey], duration: "wr", clef: clefName, auto_stem: false });
                         ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
@@ -285,14 +293,14 @@ function renderScore() {
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        let keys = d.isRest ? ["b/4"] : d.pitches;
+                        // 🚨 修正 2：實體休止符座標 (高音用 b/4，低音用 d/3)
+                        let keys = d.isRest ? [defaultRestKey] : d.pitches;
                         
-                        // 🚨 核心防死機修復：休止符 (isRest) 絕對唔可以設定 auto_stem: true，否則 VexFlow 會死機！
                         let note = new StaveNote({ 
                             keys: keys, 
                             duration: vexDur + (d.isRest ? "r" : ""), 
                             clef: clefName, 
-                            auto_stem: !d.isRest // 只有實體音符先計算符桿方向
+                            auto_stem: !d.isRest 
                         });
                         
                         note.setAttribute('id', `vf-${trackName}-${d.globalIdx}`);
@@ -350,7 +358,6 @@ function toTonePitch(pitchStr) {
     return toneNote.replace('n', ''); 
 }
 
-// --- 輸入與替換邏輯 ---
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
         let rawPitch = this.getAttribute('data-note'); 
@@ -385,9 +392,8 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 
         if (!isRestMode) {
             await Tone.start();
-            if (currentSynth) currentSynth.dispose();
-            currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
-            currentSynth.triggerAttackRelease(toTonePitch(basePitch), "8n");
+            let synth = getSynth();
+            synth.triggerAttackRelease(toTonePitch(basePitch), "8n");
         }
     });
 });
@@ -397,8 +403,8 @@ document.getElementById('clear-btn').addEventListener('click', () => { tracks = 
 
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
-    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); }
-    currentSynth = new Tone.PolySynth(Tone.Synth, { volume: 15 }).toDestination();
+    let synth = getSynth();
+    synth.releaseAll();
     Tone.Transport.cancel();
     
     let now = Tone.now();
@@ -407,17 +413,16 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
         tracks[trackName].forEach(data => {
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
             let addTime = getBeatValue(data.duration) * 0.5; 
-            if (!data.isRest) currentSynth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
+            if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
             tNow += addTime;
         });
     });
 });
 
 document.getElementById('stop-btn').addEventListener('click', () => {
-    if (currentSynth) { currentSynth.releaseAll(); currentSynth.dispose(); currentSynth = null; }
+    if (globalSynth) { globalSynth.releaseAll(); }
 });
 
-// 啟動 PDF 列印對話框
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
 // 初始化
