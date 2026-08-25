@@ -3,14 +3,17 @@ body { background-color: #f0f0f5; color: #333; user-select: none; -webkit-user-s
 
 .app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
+/* 🚨 關鍵修復：所有控制列加入 flex-shrink: 0; 保證唔會被壓縮切斷 */
+.top-bar, .tools-bar, .keyboard-bar { flex-shrink: 0; z-index: 10; }
+
 /* 頂部與工具列 */
-.top-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 10; }
+.top-bar { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 #song-title { font-size: 22px; font-weight: bold; text-align: center; border: none; outline: none; background: transparent; width: 100%; }
 .controls-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; width: 100%; }
 select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; outline: none; }
 .action-btn { background: #f0f0f0; font-weight: bold; }
 .highlight { background: #ffcc00; border: none; }
-.tools-bar { background: #fff; padding: 8px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; z-index: 9; }
+.tools-bar { background: #fff; padding: 8px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .tool-group { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .dur-btn { background: #f0f0f0; border: 1px solid #bbb; padding: 6px 10px; font-size: 13px; }
 .dur-btn.active { background: #ffcc00; border-color: #e6b800; font-weight: bold; box-shadow: 0 0 5px rgba(255,204,0,0.5); }
@@ -18,8 +21,8 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
 .checkbox-label { background: #d4edda; border: 1px solid #c3e6cb; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap; display: flex; align-items: center; }
 .checkbox-label input { transform: scale(1.1); margin-right: 4px; }
 
-/* 琴鍵區 (已移至上方) */
-.keyboard-bar { padding: 10px; background: #fff; border-bottom: 2px solid #ccc; display: flex; justify-content: center; gap: 5px; overflow-x: auto; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+/* 琴鍵區 (保證完整顯示) */
+.keyboard-bar { padding: 12px 10px; background: #fff; border-bottom: 2px solid #ccc; display: flex; justify-content: center; gap: 5px; overflow-x: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .note-btn { flex: 1; min-width: 40px; max-width: 70px; height: 55px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; box-shadow: 0 3px 5px rgba(0,0,0,0.15); cursor: pointer; touch-action: manipulation; }
 .note-btn:active { transform: scale(0.92); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
@@ -41,7 +44,7 @@ select, button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; 
     margin-bottom: 25px;
     text-align: left;
 }
-.score-page svg { display: block; max-width: none !important; }
+.score-page svg, .score-page canvas { display: block; max-width: none !important; }
 
 /* 🖨️ 打印專用 */
 @media print {
