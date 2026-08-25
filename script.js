@@ -130,8 +130,18 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
+// 🚨 附加樣式 (完美修復附點位置)
 function applyModifiers(note, data, isEditing) {
-    if (data.duration.includes("d")) note.addModifier(new Dot(), 0);
+    if (data.duration.includes("d")) {
+        let dot = new Dot();
+        let vexDur = data.duration.replace('d', '');
+        
+        // 修正：強行將 2分休止符嘅附點推高一格 (10px) 去右上角
+        if (data.isRest && vexDur === 'h') {
+            dot.setYShift(-10);
+        }
+        note.addModifier(dot, 0);
+    }
     
     if (isEditing) {
         note.addModifier(new Annotation("✏️").setFont("sans-serif", 18).setVerticalJustification(Annotation.VerticalJustify.TOP), 0);
@@ -180,15 +190,9 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🚨 核心座標運算：智能分配休止符位置
 function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        // 低音譜表：全休止符掛第4線(F3)，其他坐第3線(D3)
-        return dur === 'w' ? "f/3" : "d/3";
-    } else {
-        // 高音譜表：全休止符掛第4線(D5)，其他坐第3線(B4)
-        return dur === 'w' ? "d/5" : "b/4";
-    }
+    if (clef === 'bass') return dur === 'w' ? "f/3" : "d/3";
+    else return dur === 'w' ? "d/5" : "b/4";
 }
 
 function renderScore() {
@@ -295,18 +299,16 @@ function renderScore() {
                 function processNotes(dataArr, clefName, trackName) {
                     let notes = [];
                     
-                    // 如果小節全空，加入幽靈全休止符撐起排版
+                    // 🚨 修正：移除隱形設定，令全休止符正常顯示於大譜表空白小節
                     if (!dataArr || dataArr.length === 0) {
                         let ghostKey = getRestKey(clefName, 'w');
                         let ghost = new StaveNote({ keys: [ghostKey], duration: "wr", clef: clefName, auto_stem: false });
-                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
                     }
                     
                     dataArr.forEach(d => {
                         let vexDur = d.duration.replace('d', ''); 
-                        // 🚨 根據休止符種類智能取用正確座標
                         let keys = d.isRest ? [getRestKey(clefName, vexDur)] : d.pitches;
                         
                         let note = new StaveNote({ 
@@ -439,5 +441,4 @@ document.getElementById('stop-btn').addEventListener('click', () => {
 
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
-// 初始化
 updateClefUI();
