@@ -152,6 +152,7 @@ function applyModifiers(note, data, isEditing) {
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
             if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
+                // 🌟 核心修改：將 VerticalJustify.TOP 改為 BOTTOM，確保指法排喺音名下方
                 const fingerAnno = new Annotation(data.fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
                 note.addModifier(fingerAnno, idx);
             }
@@ -227,11 +228,8 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                // 🌟 核心修復：保證所有小節寬度統一 (不變)
-                // 即使小節內只有 1 粒全音符或 2 粒音，寬度都會根據 timeBeats 保持一致，解決排版擠壓問題
-                let noteCount = Math.max(timeBeats, (measureGroup.treble||[]).length, (measureGroup.bass||[]).length);
+                let noteCount = Math.max((measureGroup.treble||[]).length, (measureGroup.bass||[]).length);
                 let requiredWidth = Math.max(200, noteCount * 65 + (mIndex === 0 ? 60 : 0));
-                
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
@@ -351,7 +349,8 @@ function renderScore() {
                 }
                 
                 let formatter = new Formatter();
-                formatter.joinVoices(voices).formatToStave(voices, stave);
+                voices.forEach(v => formatter.joinVoices([v]));
+                formatter.format(voices, mW - 40);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
