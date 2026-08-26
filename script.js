@@ -227,9 +227,11 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                // 🌟 核心修復：小節寬度完全基於「拍子數量(timeBeats)」，而唔係「音符數量」
-                // 咁樣可以保證每個小節嘅總闊度完全一樣，2分音符同4分音符會完美按比例分配空間！
-                let requiredWidth = timeBeats * 70 + (mIndex === 0 ? 60 : 0);
+                // 🌟 核心修復：保證所有小節寬度統一 (不變)
+                // 即使小節內只有 1 粒全音符或 2 粒音，寬度都會根據 timeBeats 保持一致，解決排版擠壓問題
+                let noteCount = Math.max(timeBeats, (measureGroup.treble||[]).length, (measureGroup.bass||[]).length);
+                let requiredWidth = Math.max(200, noteCount * 65 + (mIndex === 0 ? 60 : 0));
+                
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
