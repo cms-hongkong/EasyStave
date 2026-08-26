@@ -1,5 +1,4 @@
-// 🚨 加入咗 FretHandFinger 專業指法引擎
-const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, Voice, Beam, Accidental, FretHandFinger } = Vex.Flow;
+const { Renderer, Stave, StaveNote, Formatter, Dot, Annotation, StaveConnector, Voice, Beam, Accidental } = Vex.Flow;
 
 let tracks = { treble: [], bass: [] };
 let currentTrack = "treble";
@@ -131,8 +130,7 @@ scoreWrapper.addEventListener('click', (e) => {
     }
 });
 
-// 🚨 完美指法及音名排版系統
-function applyModifiers(note, data, isEditing, clefName) {
+function applyModifiers(note, data, isEditing) {
     if (data.duration.includes("d")) {
         note.addModifier(new Dot(), 0);
     }
@@ -148,30 +146,18 @@ function applyModifiers(note, data, isEditing, clefName) {
     if (!data.isRest) {
         data.pitches.forEach((p, idx) => {
             const pitchName = p.charAt(0).toUpperCase();
-            const color = colorMap[pitchName.toLowerCase()] || "#000000";
-
             if (data.accs && data.accs[idx] && data.accs[idx] !== "") {
                 note.addModifier(new Accidental(data.accs[idx]), idx);
             }
-            
-            // 🌟 修正音名位置：加 YShift 將字母向下推低 18px，完美避開中央C 嘅實體音符！
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
-            nameAnno.setYShift(18); 
-            if (isColorMode && !isEditing) nameAnno.setStyle({ fillStyle: color, strokeStyle: color });
             note.addModifier(nameAnno, idx);
-            
-            // 🌟 修正指法位置：採用專業指法組件，精準貼實音符！
             if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
-                const fingerMod = new FretHandFinger(data.fingerings[idx]);
-                // 3 = ABOVE (高音貼上面), 4 = BELOW (低音貼下面)
-                fingerMod.setPosition(clefName === 'bass' ? 4 : 3);
-                if (isColorMode && !isEditing && fingerMod.setStyle) {
-                    fingerMod.setStyle({ fillStyle: color, strokeStyle: color });
-                }
-                note.addModifier(fingerMod, idx);
+                // 🌟 核心修改：將 VerticalJustify.TOP 改為 BOTTOM，確保指法排喺音名下方
+                const fingerAnno = new Annotation(data.fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
+                note.addModifier(fingerAnno, idx);
             }
-            
             if (isColorMode && !isEditing) {
+                const color = colorMap[pitchName.toLowerCase()] || "#000000";
                 note.setKeyStyle(idx, { fillStyle: color, strokeStyle: color });
             }
         });
@@ -229,8 +215,7 @@ function renderScore() {
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
     const SCALE = 1.6; 
-    // 🌟 終極拉闊：大譜表行距提升至 330，保證字體唔會撞落下一行！
-    const lineSpacing = clef === 'grand' ? 330 : 150; 
+    const lineSpacing = clef === 'grand' ? 290 : 150;
     const topMargin = 50;
 
     scoreWrapper.innerHTML = "";
@@ -292,8 +277,7 @@ function renderScore() {
                 
                 let staveBass;
                 if (clef === 'grand') {
-                    // 🌟 終極拉闊：高低音譜表距離加闊至 180，中央C 空間無敵寬敞！
-                    staveBass = new Stave(mX, startY + 180, mW); 
+                    staveBass = new Stave(mX, startY + 150, mW);
                     if (isFirstInLine) staveBass.addClef("bass");
                     if (isFirstMeasure) staveBass.addTimeSignature(timeSig);
                     staveBass.setContext(context).draw();
@@ -333,8 +317,7 @@ function renderScore() {
                         note.setAttribute('class', 'vf-stavenote'); 
                         
                         let isEditing = (currentTrack === trackName && editingIndex === d.globalIdx);
-                        // 🚨 傳入 clefName 給 modifiers 使用
-                        applyModifiers(note, d, isEditing, clefName);
+                        applyModifiers(note, d, isEditing);
                         notes.push(note);
                     });
                     return notes;
@@ -347,7 +330,7 @@ function renderScore() {
                 if (clef === 'grand' || clef === 'treble') {
                     tNotes = processNotes(measureGroup.treble, 'treble', 'treble');
                     let vTreble = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(tNotes);
-                    vTreble.setStave(stave); 
+                    vTreble.setStave(stave);
                     voices.push(vTreble);
                     beamsTreble = Beam.generateBeams(tNotes.filter(n => !n.isRest()));
                 }
@@ -355,7 +338,7 @@ function renderScore() {
                 if (clef === 'grand' || clef === 'bass') {
                     bNotes = processNotes(measureGroup.bass, 'bass', 'bass');
                     let vBass = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(bNotes);
-                    vBass.setStave(clef === 'grand' ? staveBass : stave); 
+                    vBass.setStave(clef === 'grand' ? staveBass : stave);
                     voices.push(vBass);
                     beamsBass = Beam.generateBeams(bNotes.filter(n => !n.isRest()));
                 }
@@ -366,7 +349,7 @@ function renderScore() {
                 }
                 
                 let formatter = new Formatter();
-                voices.forEach(v => formatter.joinVoices([v])); 
+                voices.forEach(v => formatter.joinVoices([v]));
                 formatter.format(voices, mW - 40);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
