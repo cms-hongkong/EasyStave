@@ -227,8 +227,9 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                let noteCount = Math.max((measureGroup.treble||[]).length, (measureGroup.bass||[]).length);
-                let requiredWidth = Math.max(200, noteCount * 65 + (mIndex === 0 ? 60 : 0));
+                // 🌟 核心修復：小節寬度完全基於「拍子數量(timeBeats)」，而唔係「音符數量」
+                // 咁樣可以保證每個小節嘅總闊度完全一樣，2分音符同4分音符會完美按比例分配空間！
+                let requiredWidth = timeBeats * 70 + (mIndex === 0 ? 60 : 0);
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
@@ -347,7 +348,6 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
-                // 🌟 使用 formatToStave 確保音符均勻分佈在小節內
                 let formatter = new Formatter();
                 formatter.joinVoices(voices).formatToStave(voices, stave);
                 
