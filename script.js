@@ -182,7 +182,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 完美精準坐標
+// 🚨 完美精準坐標，解決死機 Bug，並確保各休止符坐喺最標準嘅線上面
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
         return dur === 'w' ? "f/3" : "d/3"; // 低音: 全休止符(F3 第四線)，其他(D3 第三線)
@@ -215,8 +215,7 @@ function renderScore() {
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
     const SCALE = 1.6; 
-    // 🌟 加闊行距：避免大譜表行與行之間重疊
-    const lineSpacing = clef === 'grand' ? 290 : 150; 
+    const lineSpacing = clef === 'grand' ? 290 : 150;
     const topMargin = 50;
 
     scoreWrapper.innerHTML = "";
@@ -278,8 +277,7 @@ function renderScore() {
                 
                 let staveBass;
                 if (clef === 'grand') {
-                    // 🌟 加闊距離：完美提供空間給中央C與指法
-                    staveBass = new Stave(mX, startY + 150, mW); 
+                    staveBass = new Stave(mX, startY + 150, mW);
                     if (isFirstInLine) staveBass.addClef("bass");
                     if (isFirstMeasure) staveBass.addTimeSignature(timeSig);
                     staveBass.setContext(context).draw();
@@ -299,6 +297,8 @@ function renderScore() {
                     
                     if (!dataArr || dataArr.length === 0) {
                         let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
+                        // 透明幽靈音符，支撐空白小節
+                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
                     }
@@ -331,7 +331,7 @@ function renderScore() {
                 if (clef === 'grand' || clef === 'treble') {
                     tNotes = processNotes(measureGroup.treble, 'treble', 'treble');
                     let vTreble = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(tNotes);
-                    vTreble.setStave(stave); // 🚨 核心防死機：必須先綁定 Stave
+                    vTreble.setStave(stave);
                     voices.push(vTreble);
                     beamsTreble = Beam.generateBeams(tNotes.filter(n => !n.isRest()));
                 }
@@ -339,7 +339,7 @@ function renderScore() {
                 if (clef === 'grand' || clef === 'bass') {
                     bNotes = processNotes(measureGroup.bass, 'bass', 'bass');
                     let vBass = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(bNotes);
-                    vBass.setStave(clef === 'grand' ? staveBass : stave); // 🚨 核心防死機：必須先綁定 Stave
+                    vBass.setStave(clef === 'grand' ? staveBass : stave);
                     voices.push(vBass);
                     beamsBass = Beam.generateBeams(bNotes.filter(n => !n.isRest()));
                 }
@@ -349,8 +349,9 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
+                // 🚨 終極修復：分開加入 Formatter！確保高低音排版互不干擾，阻止休止符下墜！
                 let formatter = new Formatter();
-                formatter.joinVoices(voices); // 🚨 修正排版 API
+                voices.forEach(v => formatter.joinVoices([v])); 
                 formatter.format(voices, mW - 40);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
