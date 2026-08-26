@@ -152,7 +152,6 @@ function applyModifiers(note, data, isEditing) {
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
             if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
-                // 🌟 核心修改：將 VerticalJustify.TOP 改為 BOTTOM，確保指法排喺音名下方
                 const fingerAnno = new Annotation(data.fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
                 note.addModifier(fingerAnno, idx);
             }
@@ -228,8 +227,10 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                let noteCount = Math.max((measureGroup.treble||[]).length, (measureGroup.bass||[]).length);
-                let requiredWidth = Math.max(200, noteCount * 65 + (mIndex === 0 ? 60 : 0));
+                // 🌟 終極完美修正：保持所有小節寬度「絕對不變」，同時避免 VexFlow 過度拉扯
+                // 固定使用適中嘅黃金寬度 (240px)，第一小節額外加 60px 留畀譜號
+                let requiredWidth = 240 + (mIndex === 0 ? 60 : 0);
+                
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
@@ -349,8 +350,7 @@ function renderScore() {
                 }
                 
                 let formatter = new Formatter();
-                voices.forEach(v => formatter.joinVoices([v]));
-                formatter.format(voices, mW - 40);
+                formatter.joinVoices(voices).formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
