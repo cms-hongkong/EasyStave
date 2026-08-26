@@ -152,7 +152,6 @@ function applyModifiers(note, data, isEditing) {
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
             if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
-                // 🌟 核心修改：將 VerticalJustify.TOP 改為 BOTTOM，確保指法排喺音名下方
                 const fingerAnno = new Annotation(data.fingerings[idx]).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
                 note.addModifier(fingerAnno, idx);
             }
@@ -348,9 +347,9 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
                 
+                // 🌟 使用 formatToStave 確保音符均勻分佈在小節內
                 let formatter = new Formatter();
-                voices.forEach(v => formatter.joinVoices([v]));
-                formatter.format(voices, mW - 40);
+                formatter.joinVoices(voices).formatToStave(voices, stave);
                 
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
