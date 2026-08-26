@@ -227,8 +227,7 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                // 🌟 設定每小節 300px 寬度
-                // 第一小節自動 + 60px 裝譜號，確保所有小節嘅「純音符間距」絕對一致
+                // 絕對鎖定每小節 300px，第一小節多 60px 用嚟擺譜號
                 let requiredWidth = 300 + (mIndex === 0 ? 60 : 0);
                 
                 mWidths.push(requiredWidth);
@@ -348,10 +347,20 @@ function renderScore() {
                     beamsTreble.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
+
+                // 🌟 神級排版魔法：加入「隱形網格」，強制定立絕對平均嘅物理空間
+                let gridNotes = [];
+                for (let b = 0; b < timeBeats; b++) {
+                    gridNotes.push(new Vex.Flow.GhostNote({ duration: "q" }));
+                }
+                let gridVoice = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(gridNotes);
+                gridVoice.setStave(stave);
+                voices.push(gridVoice); // 加入排版系統，但永不畫出嚟！
                 
                 let formatter = new Formatter();
                 formatter.joinVoices(voices).formatToStave(voices, stave);
                 
+                // 只畫出真實音符，不畫網格
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
                 else if (clef === 'bass') { voices[0].draw(context, stave); beamsBass.forEach(b => b.setContext(context).draw()); }
