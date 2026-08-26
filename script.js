@@ -227,9 +227,9 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                // 🌟 終極完美修正：保持所有小節寬度「絕對不變」，同時避免 VexFlow 過度拉扯
-                // 固定使用適中嘅黃金寬度 (240px)，第一小節額外加 60px 留畀譜號
-                let requiredWidth = 240 + (mIndex === 0 ? 60 : 0);
+                // 🌟 設定每小節 300px 寬度
+                // 第一小節自動 + 60px 裝譜號，確保所有小節嘅「純音符間距」絕對一致
+                let requiredWidth = 300 + (mIndex === 0 ? 60 : 0);
                 
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
