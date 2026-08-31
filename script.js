@@ -24,7 +24,6 @@ document.getElementById('song-title').addEventListener('input', function() {
     printTitles.forEach(t => t.innerText = this.value);
 });
 
-// --- UI 綁定 ---
 document.querySelectorAll('.dur-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -38,7 +37,6 @@ document.getElementById('rest-btn').addEventListener('click', function() {
     this.classList.toggle('active');
 });
 
-// 🌟 換行按鈕綁定
 document.getElementById('line-break-btn').addEventListener('click', function() {
     let newData = { isLineBreak: true };
     if (editingIndex !== -1) {
@@ -169,21 +167,22 @@ function getBeatValue(dur, isRest = false, timeBeats = 4) {
     return dur === 'w' ? 4 : dur === 'hd' ? 3 : dur === 'h' ? 2 : dur === 'qd' ? 1.5 : dur === 'q' ? 1 : 0.5;
 }
 
-// 🌟 小節建立邏輯加入換行偵測
 function buildMeasures(trackData, timeBeats) {
     let measures = [];
     let currentM = [];
     let beats = 0;
     
     trackData.forEach((d, i) => {
-        // 如果是換行標記，將標籤綁定在當前小節 (或前一小節)
         if (d.isLineBreak) {
-            if (currentM.length === 0 && measures.length > 0) {
-                measures[measures.length - 1].hasLineBreak = true;
-            } else {
+            if (currentM.length > 0) {
                 currentM.hasLineBreak = true;
+                measures.push(currentM);
+                currentM = [];
+                beats = 0;
+            } else if (measures.length > 0) {
+                measures[measures.length - 1].hasLineBreak = true;
             }
-            return; // 略過計算
+            return; 
         }
         
         let v = getBeatValue(d.duration, d.isRest, timeBeats);
@@ -211,15 +210,20 @@ function renderScore() {
     let measuresBass = buildMeasures(tracks.bass, timeBeats);
     
     let maxM = Math.max(measuresTreble.length, measuresBass.length, 1);
-    let activeMeasures = [];
     
+    let lastTreble = measuresTreble[measuresTreble.length - 1];
+    let lastBass = measuresBass[measuresBass.length - 1];
+    if ((lastTreble && lastTreble.hasLineBreak) || (lastBass && lastBass.hasLineBreak)) {
+        maxM++; 
+    }
+    
+    let activeMeasures = [];
     for (let i = 0; i < maxM; i++) {
         if (clef === 'grand') activeMeasures.push({ treble: measuresTreble[i] || [], bass: measuresBass[i] || [] });
         else if (clef === 'treble') activeMeasures.push({ treble: measuresTreble[i] || [] });
         else activeMeasures.push({ bass: measuresBass[i] || [] });
     }
 
-    // 🌟 將自動斷行與手動換行邏輯結合
     let lines = [];
     let currentLine = [];
     for (let i = 0; i < activeMeasures.length; i++) {
@@ -229,7 +233,6 @@ function renderScore() {
         if (activeMeasures[i].treble && activeMeasures[i].treble.hasLineBreak) forceBreak = true;
         if (activeMeasures[i].bass && activeMeasures[i].bass.hasLineBreak) forceBreak = true;
         
-        // 預設每行最多 4 小節，如果有 forceBreak 則提早結束此行
         if (currentLine.length >= 4 || forceBreak || i === activeMeasures.length - 1) {
             lines.push(currentLine);
             currentLine = [];
@@ -445,7 +448,6 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); renderScore(); });
 document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); renderScore(); });
 
-// 🌟 播放邏輯加入防呆，略過換行標記
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
     let synth = getSynth();
@@ -459,7 +461,7 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     ['treble', 'bass'].forEach(trackName => {
         let tNow = now;
         tracks[trackName].forEach(data => {
-            if (data.isLineBreak) return; // 跳過換行標記
+            if (data.isLineBreak) return; 
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
             let addTime = getBeatValue(data.duration, data.isRest, timeBeats) * 0.5; 
             if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
