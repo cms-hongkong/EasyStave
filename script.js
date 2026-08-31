@@ -163,16 +163,21 @@ function applyModifiers(note, data, isEditing) {
     }
 }
 
-function getBeatValue(dur) {
+// 修改點 1：加入 isRest 和 timeBeats 參數來判斷全休止符拍數
+function getBeatValue(dur, isRest = false, timeBeats = 4) {
+    if (dur === 'w' && isRest) {
+        return timeBeats;
+    }
     return dur === 'w' ? 4 : dur === 'hd' ? 3 : dur === 'h' ? 2 : dur === 'qd' ? 1.5 : dur === 'q' ? 1 : 0.5;
 }
 
+// 修改點 2：動態傳入 d.isRest 及 timeBeats 給 getBeatValue
 function buildMeasures(trackData, timeBeats) {
     let measures = [];
     let currentM = [];
     let beats = 0;
     trackData.forEach((d, i) => {
-        let v = getBeatValue(d.duration);
+        let v = getBeatValue(d.duration, d.isRest, timeBeats);
         if (beats + v > timeBeats + 0.001) { measures.push(currentM); currentM = []; beats = 0; }
         currentM.push({...d, globalIdx: i});
         beats += v;
@@ -424,21 +429,25 @@ document.querySelectorAll('.note-btn').forEach(btn => {
     });
 });
 
-document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); });
-document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); });
+document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); renderScore(); });
+document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); renderScore(); });
 
+// 修改點 3：動態抓取 timeBeats 計算全休止等待時間
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
     let synth = getSynth();
     synth.releaseAll();
     Tone.Transport.cancel();
     
+    const timeSig = document.getElementById("time-select").value || "4/4";
+    const timeBeats = parseInt(timeSig.split('/')[0]) || 4; 
+    
     let now = Tone.now();
     ['treble', 'bass'].forEach(trackName => {
         let tNow = now;
         tracks[trackName].forEach(data => {
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
-            let addTime = getBeatValue(data.duration) * 0.5; 
+            let addTime = getBeatValue(data.duration, data.isRest, timeBeats) * 0.5; 
             if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
             tNow += addTime;
         });
