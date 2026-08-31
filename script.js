@@ -196,8 +196,16 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 🌟 修正所有休止符的高低位置 🌟
 function getRestKey(clef, dur) {
-    return clef === 'bass' ? "d/3" : "b/4";
+    if (clef === 'bass') {
+        if (dur === 'w') return "f/3"; // 低音全休止符高一格 (掛在第四線)
+        return "d/3";
+    } else {
+        if (dur === 'w') return "d/5"; // 高音全休止符高一格 (掛在第四線)
+        if (dur === 'h' || dur === 'hd' || dur === 'qd') return "a/4"; // 高音2分及附點4分休止符低一格
+        return "b/4";
+    }
 }
 
 function renderScore() {
