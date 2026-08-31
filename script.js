@@ -196,15 +196,14 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 修正所有休止符的高低位置 🌟
+// 🌟 精準鎖定所有休止符的標準五線譜位置 🌟
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
-        if (dur === 'w') return "f/3"; // 低音全休止符高一格 (掛在第四線)
-        return "d/3";
+        if (dur === 'w') return "f/3"; // 低音全休止符: 掛在第四線 (F3)
+        return "d/3";                  // 低音 2分/4分/8分: 坐於/置中第三線 (D3)
     } else {
-        if (dur === 'w') return "d/5"; // 高音全休止符高一格 (掛在第四線)
-        if (dur === 'h' || dur === 'hd' || dur === 'qd') return "a/4"; // 高音2分及附點4分休止符低一格
-        return "b/4";
+        if (dur === 'w') return "d/5"; // 高音全休止符: 掛在第四線 (D5)
+        return "b/4";                  // 高音 2分/4分/8分: 坐於/置中第三線 (B4)
     }
 }
 
@@ -331,8 +330,8 @@ function renderScore() {
                     let notes = [];
                     
                     if (!dataArr || dataArr.length === 0) {
+                        // 🌟 修正: 移除了 transparent 設定，讓大譜表的空白小節顯示預設的全休止符
                         let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
-                        ghost.setStyle({ fillStyle: "transparent", strokeStyle: "transparent" });
                         notes.push(ghost);
                         return notes;
                     }
