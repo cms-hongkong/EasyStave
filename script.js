@@ -38,6 +38,19 @@ document.getElementById('rest-btn').addEventListener('click', function() {
     this.classList.toggle('active');
 });
 
+// 🌟 換行按鈕綁定
+document.getElementById('line-break-btn').addEventListener('click', function() {
+    let newData = { isLineBreak: true };
+    if (editingIndex !== -1) {
+        tracks[currentTrack][editingIndex] = newData;
+        editingIndex = -1;
+        updateEditStatus();
+    } else {
+        tracks[currentTrack].push(newData);
+    }
+    renderScore();
+});
+
 document.getElementById("toggle-color").addEventListener("click", function() {
     isColorMode = !isColorMode;
     this.innerText = isColorMode ? "🎨 彩色: 開" : "🎨 彩色: 關";
@@ -65,16 +78,10 @@ function updateClefUI() {
 }
 
 document.getElementById('clef-select').addEventListener('change', updateClefUI);
-
-document.getElementById('track-select').addEventListener('change', function() {
-    currentTrack = this.value;
-    editingIndex = -1; updateEditStatus();
-});
-
+document.getElementById('track-select').addEventListener('change', function() { currentTrack = this.value; editingIndex = -1; updateEditStatus(); });
 document.getElementById('lines-per-page').addEventListener('change', () => renderScore());
 document.getElementById('time-select').addEventListener('change', () => renderScore());
 
-// --- ✏️ 雙重修改機制 ---
 function updateEditStatus() {
     const status = document.getElementById("edit-status");
     const cancelBtn = document.getElementById("cancel-edit-btn");
@@ -107,9 +114,7 @@ document.getElementById('edit-next').addEventListener('click', () => {
     updateEditStatus();
 });
 
-document.getElementById('cancel-edit-btn').addEventListener('click', () => {
-    editingIndex = -1; updateEditStatus();
-});
+document.getElementById('cancel-edit-btn').addEventListener('click', () => { editingIndex = -1; updateEditStatus(); });
 
 scoreWrapper.addEventListener('click', (e) => {
     let current = e.target;
@@ -131,9 +136,7 @@ scoreWrapper.addEventListener('click', (e) => {
 });
 
 function applyModifiers(note, data, isEditing) {
-    if (data.duration.includes("d")) {
-        note.addModifier(new Dot(), 0);
-    }
+    if (data.duration.includes("d")) note.addModifier(new Dot(), 0);
     
     if (isEditing) {
         note.addModifier(new Annotation("✏️").setFont("sans-serif", 18).setVerticalJustification(Annotation.VerticalJustify.TOP), 0);
@@ -146,9 +149,7 @@ function applyModifiers(note, data, isEditing) {
     if (!data.isRest) {
         data.pitches.forEach((p, idx) => {
             const pitchName = p.charAt(0).toUpperCase();
-            if (data.accs && data.accs[idx] && data.accs[idx] !== "") {
-                note.addModifier(new Accidental(data.accs[idx]), idx);
-            }
+            if (data.accs && data.accs[idx] && data.accs[idx] !== "") note.addModifier(new Accidental(data.accs[idx]), idx);
             const nameAnno = new Annotation(pitchName).setFont("sans-serif", 14, "bold").setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
             note.addModifier(nameAnno, idx);
             if (data.fingerings && data.fingerings[idx] && data.fingerings[idx] !== 'none') {
@@ -163,36 +164,41 @@ function applyModifiers(note, data, isEditing) {
     }
 }
 
-// 支援動態全休止符拍數
 function getBeatValue(dur, isRest = false, timeBeats = 4) {
-    if (dur === 'w' && isRest) {
-        return timeBeats;
-    }
+    if (dur === 'w' && isRest) return timeBeats;
     return dur === 'w' ? 4 : dur === 'hd' ? 3 : dur === 'h' ? 2 : dur === 'qd' ? 1.5 : dur === 'q' ? 1 : 0.5;
 }
 
+// 🌟 小節建立邏輯加入換行偵測
 function buildMeasures(trackData, timeBeats) {
     let measures = [];
     let currentM = [];
     let beats = 0;
+    
     trackData.forEach((d, i) => {
+        // 如果是換行標記，將標籤綁定在當前小節 (或前一小節)
+        if (d.isLineBreak) {
+            if (currentM.length === 0 && measures.length > 0) {
+                measures[measures.length - 1].hasLineBreak = true;
+            } else {
+                currentM.hasLineBreak = true;
+            }
+            return; // 略過計算
+        }
+        
         let v = getBeatValue(d.duration, d.isRest, timeBeats);
         if (beats + v > timeBeats + 0.001) { measures.push(currentM); currentM = []; beats = 0; }
         currentM.push({...d, globalIdx: i});
         beats += v;
         if (beats >= timeBeats - 0.001) { measures.push(currentM); currentM = []; beats = 0; }
     });
+    
     if (currentM.length > 0) measures.push(currentM);
     return measures;
 }
 
-// ✅ 修正休止符的高度位置
 function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        return "d/3";
-    } else {
-        return "b/4";
-    }
+    return clef === 'bass' ? "d/3" : "b/4";
 }
 
 function renderScore() {
@@ -213,8 +219,23 @@ function renderScore() {
         else activeMeasures.push({ bass: measuresBass[i] || [] });
     }
 
+    // 🌟 將自動斷行與手動換行邏輯結合
     let lines = [];
-    for (let i = 0; i < activeMeasures.length; i += 4) { lines.push(activeMeasures.slice(i, i + 4)); }
+    let currentLine = [];
+    for (let i = 0; i < activeMeasures.length; i++) {
+        currentLine.push(activeMeasures[i]);
+        
+        let forceBreak = false;
+        if (activeMeasures[i].treble && activeMeasures[i].treble.hasLineBreak) forceBreak = true;
+        if (activeMeasures[i].bass && activeMeasures[i].bass.hasLineBreak) forceBreak = true;
+        
+        // 預設每行最多 4 小節，如果有 forceBreak 則提早結束此行
+        if (currentLine.length >= 4 || forceBreak || i === activeMeasures.length - 1) {
+            lines.push(currentLine);
+            currentLine = [];
+        }
+    }
+
     let pages = [];
     for (let i = 0; i < lines.length; i += maxLinesPerPage) { pages.push(lines.slice(i, i + maxLinesPerPage)); }
 
@@ -233,7 +254,6 @@ function renderScore() {
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
                 let requiredWidth = 300 + (mIndex === 0 ? 60 : 0);
-                
                 mWidths.push(requiredWidth);
                 currentLineWidth += requiredWidth;
             });
@@ -353,9 +373,7 @@ function renderScore() {
                 }
 
                 let gridNotes = [];
-                for (let b = 0; b < timeBeats; b++) {
-                    gridNotes.push(new Vex.Flow.GhostNote({ duration: "q" }));
-                }
+                for (let b = 0; b < timeBeats; b++) gridNotes.push(new Vex.Flow.GhostNote({ duration: "q" }));
                 let gridVoice = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(gridNotes);
                 gridVoice.setStave(stave);
                 voices.push(gridVoice); 
@@ -381,11 +399,9 @@ function processPitch(basePitch, shiftVal, acc) {
 function toTonePitch(pitchStr) {
     let note = pitchStr.split('/')[0];
     let oct = pitchStr.split('/')[1];
-    let toneNote = note.charAt(0).toUpperCase() + note.slice(1) + oct;
-    return toneNote.replace('n', ''); 
+    return (note.charAt(0).toUpperCase() + note.slice(1) + oct).replace('n', ''); 
 }
 
-// --- 輸入與替換邏輯 ---
 document.querySelectorAll('.note-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
         let rawPitch = this.getAttribute('data-note'); 
@@ -400,12 +416,12 @@ document.querySelectorAll('.note-btn').forEach(btn => {
         if (isChordMode && !isRestMode && tracks[currentTrack].length > 0) {
             let targetIdx = editingIndex !== -1 ? editingIndex : tracks[currentTrack].length - 1;
             let targetData = tracks[currentTrack][targetIdx];
-            if (targetData.duration === selectedDuration && !targetData.isRest) {
+            if (targetData.duration === selectedDuration && !targetData.isRest && !targetData.isLineBreak) {
                 targetData.pitches.push(basePitch);
                 targetData.fingerings.push(fingering);
                 targetData.accs.push(acc);
                 document.getElementById('chord-mode').checked = false; 
-            } else { alert("⚠️ 疊加失敗：長度必須相同！"); return; }
+            } else { alert("⚠️ 疊加失敗：長度必須相同且不能與休止/換行疊加！"); return; }
         } else {
             if (editingIndex !== -1) {
                 tracks[currentTrack][editingIndex] = newData;
@@ -429,6 +445,7 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); renderScore(); });
 document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); renderScore(); });
 
+// 🌟 播放邏輯加入防呆，略過換行標記
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
     let synth = getSynth();
@@ -442,6 +459,7 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     ['treble', 'bass'].forEach(trackName => {
         let tNow = now;
         tracks[trackName].forEach(data => {
+            if (data.isLineBreak) return; // 跳過換行標記
             let toneDur = data.duration === "w" ? "1n" : data.duration === "hd" ? "2n." : data.duration === "h" ? "2n" : data.duration === "qd" ? "4n." : data.duration === "q" ? "4n" : "8n";
             let addTime = getBeatValue(data.duration, data.isRest, timeBeats) * 0.5; 
             if (!data.isRest) synth.triggerAttackRelease(data.pitches.map(p => toTonePitch(p)), toneDur, tNow);
@@ -450,10 +468,7 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
     });
 });
 
-document.getElementById('stop-btn').addEventListener('click', () => {
-    if (globalSynth) { globalSynth.releaseAll(); }
-});
-
+document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
 document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
 
 updateClefUI();
