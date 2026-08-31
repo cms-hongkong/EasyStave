@@ -196,15 +196,9 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 精準鎖定所有休止符的標準五線譜位置 🌟
+// 🌟 回復至 VexFlow 標準定位：只要給予中央線，引擎會自動處理所有休止符的完美對齊
 function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        if (dur === 'w') return "f/3"; // 低音全休止符: 掛在第四線 (F3)
-        return "d/3";                  // 低音 2分/4分/8分: 坐於/置中第三線 (D3)
-    } else {
-        if (dur === 'w') return "d/5"; // 高音全休止符: 掛在第四線 (D5)
-        return "b/4";                  // 高音 2分/4分/8分: 坐於/置中第三線 (B4)
-    }
+    return clef === 'bass' ? "d/3" : "b/4";
 }
 
 function renderScore() {
@@ -330,7 +324,6 @@ function renderScore() {
                     let notes = [];
                     
                     if (!dataArr || dataArr.length === 0) {
-                        // 🌟 修正: 移除了 transparent 設定，讓大譜表的空白小節顯示預設的全休止符
                         let ghost = new StaveNote({ keys: [getRestKey(clefName, 'w')], duration: "wr", clef: clefName, auto_stem: false });
                         notes.push(ghost);
                         return notes;
@@ -360,12 +353,14 @@ function renderScore() {
                 let tNotes = [], bNotes = [];
                 let voices = [];
                 let beamsTreble = [], beamsBass = [];
+                let vIdxTreble = -1, vIdxBass = -1;
 
                 if (clef === 'grand' || clef === 'treble') {
                     tNotes = processNotes(measureGroup.treble, 'treble', 'treble');
                     let vTreble = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(tNotes);
                     vTreble.setStave(stave);
                     voices.push(vTreble);
+                    vIdxTreble = voices.length - 1;
                     beamsTreble = Beam.generateBeams(tNotes.filter(n => !n.isRest()));
                 }
                 
@@ -374,6 +369,7 @@ function renderScore() {
                     let vBass = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(bNotes);
                     vBass.setStave(clef === 'grand' ? staveBass : stave);
                     voices.push(vBass);
+                    vIdxBass = voices.length - 1;
                     beamsBass = Beam.generateBeams(bNotes.filter(n => !n.isRest()));
                 }
 
@@ -388,12 +384,23 @@ function renderScore() {
                 gridVoice.setStave(stave);
                 voices.push(gridVoice); 
                 
+                // 🌟 修正排版核心：分別處理每個聲部，禁止系統合併避讓，並避免低音飄移至高音譜表
                 let formatter = new Formatter();
-                formatter.joinVoices(voices).formatToStave(voices, stave);
+                voices.forEach(v => formatter.joinVoices([v]));
                 
-                if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
-                if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
-                else if (clef === 'bass') { voices[0].draw(context, stave); beamsBass.forEach(b => b.setContext(context).draw()); }
+                let startX = stave.getNoteStartX() - stave.getX();
+                let formatWidth = Math.max(mW - startX - 10, 50); 
+                formatter.format(voices, formatWidth);
+                
+                // 畫出對應聲部 (維持各自原本綁定的譜表)
+                if (vIdxTreble !== -1) { 
+                    voices[vIdxTreble].draw(context, stave); 
+                    beamsTreble.forEach(b => b.setContext(context).draw()); 
+                }
+                if (vIdxBass !== -1) { 
+                    voices[vIdxBass].draw(context, clef === 'grand' ? staveBass : stave); 
+                    beamsBass.forEach(b => b.setContext(context).draw()); 
+                }
             });
         });
     });
