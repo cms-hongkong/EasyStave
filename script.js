@@ -163,7 +163,7 @@ function applyModifiers(note, data, isEditing) {
     }
 }
 
-// 修改點 1：加入 isRest 和 timeBeats 參數來判斷全休止符拍數
+// 支援動態全休止符拍數
 function getBeatValue(dur, isRest = false, timeBeats = 4) {
     if (dur === 'w' && isRest) {
         return timeBeats;
@@ -171,7 +171,6 @@ function getBeatValue(dur, isRest = false, timeBeats = 4) {
     return dur === 'w' ? 4 : dur === 'hd' ? 3 : dur === 'h' ? 2 : dur === 'qd' ? 1.5 : dur === 'q' ? 1 : 0.5;
 }
 
-// 修改點 2：動態傳入 d.isRest 及 timeBeats 給 getBeatValue
 function buildMeasures(trackData, timeBeats) {
     let measures = [];
     let currentM = [];
@@ -187,11 +186,12 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// ✅ 修正休止符的高度位置
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
-        return dur === 'w' ? "f/3" : "d/3";
+        return "d/3";
     } else {
-        return dur === 'w' ? "d/5" : "b/4";
+        return "b/4";
     }
 }
 
@@ -232,7 +232,6 @@ function renderScore() {
             let currentLineWidth = 20;
             let mWidths = [];
             lineGroup.forEach((measureGroup, mIndex) => {
-                // 絕對鎖定每小節 300px，第一小節多 60px 用嚟擺譜號
                 let requiredWidth = 300 + (mIndex === 0 ? 60 : 0);
                 
                 mWidths.push(requiredWidth);
@@ -353,19 +352,17 @@ function renderScore() {
                     beamsBass.forEach(b => { const c = colorMap[b.notes[0].keys[0].charAt(0).toLowerCase()] || "#000"; b.setStyle({ fillStyle: c, strokeStyle: c }); });
                 }
 
-                // 🌟 神級排版魔法：加入「隱形網格」，強制定立絕對平均嘅物理空間
                 let gridNotes = [];
                 for (let b = 0; b < timeBeats; b++) {
                     gridNotes.push(new Vex.Flow.GhostNote({ duration: "q" }));
                 }
                 let gridVoice = new Voice({num_beats: timeBeats, beat_value: 4}).setMode(Voice.Mode.SOFT).addTickables(gridNotes);
                 gridVoice.setStave(stave);
-                voices.push(gridVoice); // 加入排版系統，但永不畫出嚟！
+                voices.push(gridVoice); 
                 
                 let formatter = new Formatter();
                 formatter.joinVoices(voices).formatToStave(voices, stave);
                 
-                // 只畫出真實音符，不畫網格
                 if (clef === 'grand' || clef === 'treble') { voices[0].draw(context, stave); beamsTreble.forEach(b => b.setContext(context).draw()); }
                 if (clef === 'grand') { voices[1].draw(context, staveBass); beamsBass.forEach(b => b.setContext(context).draw()); }
                 else if (clef === 'bass') { voices[0].draw(context, stave); beamsBass.forEach(b => b.setContext(context).draw()); }
@@ -432,7 +429,6 @@ document.querySelectorAll('.note-btn').forEach(btn => {
 document.getElementById('undo-btn').addEventListener('click', () => { tracks[currentTrack].pop(); editingIndex = -1; updateEditStatus(); renderScore(); });
 document.getElementById('clear-btn').addEventListener('click', () => { tracks = {treble:[], bass:[]}; editingIndex = -1; updateEditStatus(); renderScore(); });
 
-// 修改點 3：動態抓取 timeBeats 計算全休止等待時間
 document.getElementById('play-all-btn').addEventListener('click', async () => {
     await Tone.start();
     let synth = getSynth();
