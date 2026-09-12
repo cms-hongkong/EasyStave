@@ -196,9 +196,13 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 移除手動高度干擾：統一回傳中央線，讓 VexFlow 自動判定休止符的完美位置
+// 🌟 修正：精準分離全休止符（掛第四線）與其他休止符（坐第三線）
 function getRestKey(clef, dur) {
-    return clef === 'bass' ? "d/3" : "b/4";
+    if (clef === 'bass') {
+        return dur === 'w' ? "f/3" : "d/3";
+    } else {
+        return dur === 'w' ? "d/5" : "b/4";
+    }
 }
 
 function renderScore() {
