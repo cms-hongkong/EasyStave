@@ -196,12 +196,9 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
+// 🌟 移除手動高度干擾：統一回傳中央線，讓 VexFlow 自動判定休止符的完美位置
 function getRestKey(clef, dur) {
-    if (clef === 'bass') {
-        return dur === 'w' ? "f/3" : "d/3"; 
-    } else {
-        return dur === 'w' ? "d/5" : "b/4"; 
-    }
+    return clef === 'bass' ? "d/3" : "b/4";
 }
 
 function renderScore() {
@@ -277,7 +274,6 @@ function renderScore() {
         if (pageIndex === 0) {
             let titleDiv = document.createElement("div");
             titleDiv.className = "print-title";
-            // JPG 匯出時讓標題顯示
             titleDiv.style.display = "block";
             titleDiv.style.textAlign = "center";
             titleDiv.style.fontSize = "32px";
@@ -493,21 +489,14 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
 
 document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
 
-// 🌟 修改：將 PDF 匯出替換為 JPG 匯出功能 🌟
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
     const scoreElement = document.getElementById('score-wrapper');
-    const originalBackground = scoreElement.style.background;
-    
-    // 設定高品質繪圖參數
     html2canvas(scoreElement, {
-        scale: 2, // 提高解析度
-        backgroundColor: "#d9dbde", // 確保背景顏色正常
-        scrollY: -window.scrollY // 解決因為捲動造成的錯位
+        scale: 2, 
+        backgroundColor: "#d9dbde",
+        scrollY: -window.scrollY 
     }).then(canvas => {
-        // 轉換為 JPG
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        
-        // 觸發下載
         const link = document.createElement('a');
         const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
         link.download = `${songTitle}.jpg`;
