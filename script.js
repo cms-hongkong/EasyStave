@@ -196,12 +196,12 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 修正：精準分離全休止符（掛第四線）與其他休止符（坐第三線）
+// 🌟 強制再推高一格：確保全休止符完美掛在第四線
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
-        return dur === 'w' ? "f/3" : "d/3";
+        return dur === 'w' ? "g/3" : "d/3"; 
     } else {
-        return dur === 'w' ? "d/5" : "b/4";
+        return dur === 'w' ? "e/5" : "b/4"; 
     }
 }
 
