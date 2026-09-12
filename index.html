@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>卡雅音樂教室彩虹樂譜</title>
-    <!-- 加入 ?v=final 強制瀏覽器讀取最新版 -->
     <link rel="stylesheet" href="style.css?v=final">
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- 加入 html2canvas 套件以支援 JPG 匯出 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -37,7 +38,8 @@
                 <button id="stop-btn" class="action-btn" style="background:#ff3b30; color:white;">⏹️ 停止</button>
                 <button id="undo-btn" class="action-btn">↩ 復原</button>
                 <button id="clear-btn" class="action-btn">🗑️ 清除</button>
-                <button id="export-pdf-btn" class="action-btn" style="background:#ff9500; color:white;">🖨️ PDF 列印</button>
+                <!-- 修改為 JPG 匯出按鈕 -->
+                <button id="export-pdf-btn" class="action-btn" style="background:#ff9500; color:white;">🖼️ JPG 匯出</button>
             </div>
         </header>
 
@@ -109,7 +111,6 @@
         <main class="score-container" id="score-wrapper"></main>
     </div>
     
-    <!-- 加入 ?v=final 強制讀取最新版 -->
     <script src="script.js?v=final"></script>
 </body>
 </html>
