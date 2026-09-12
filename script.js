@@ -196,9 +196,12 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 回復至 VexFlow 標準定位：只要給予中央線，引擎會自動處理所有休止符的完美對齊
 function getRestKey(clef, dur) {
-    return clef === 'bass' ? "d/3" : "b/4";
+    if (clef === 'bass') {
+        return dur === 'w' ? "f/3" : "d/3"; 
+    } else {
+        return dur === 'w' ? "d/5" : "b/4"; 
+    }
 }
 
 function renderScore() {
@@ -274,6 +277,12 @@ function renderScore() {
         if (pageIndex === 0) {
             let titleDiv = document.createElement("div");
             titleDiv.className = "print-title";
+            // JPG 匯出時讓標題顯示
+            titleDiv.style.display = "block";
+            titleDiv.style.textAlign = "center";
+            titleDiv.style.fontSize = "32px";
+            titleDiv.style.fontWeight = "bold";
+            titleDiv.style.marginBottom = "20px";
             titleDiv.innerText = document.getElementById("song-title").value;
             containerDiv.appendChild(titleDiv);
         }
@@ -384,7 +393,6 @@ function renderScore() {
                 gridVoice.setStave(stave);
                 voices.push(gridVoice); 
                 
-                // 🌟 修正排版核心：分別處理每個聲部，禁止系統合併避讓，並避免低音飄移至高音譜表
                 let formatter = new Formatter();
                 voices.forEach(v => formatter.joinVoices([v]));
                 
@@ -392,7 +400,6 @@ function renderScore() {
                 let formatWidth = Math.max(mW - startX - 10, 50); 
                 formatter.format(voices, formatWidth);
                 
-                // 畫出對應聲部 (維持各自原本綁定的譜表)
                 if (vIdxTreble !== -1) { 
                     voices[vIdxTreble].draw(context, stave); 
                     beamsTreble.forEach(b => b.setContext(context).draw()); 
@@ -485,6 +492,28 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
-document.getElementById('export-pdf-btn').addEventListener('click', () => { window.print(); });
+
+// 🌟 修改：將 PDF 匯出替換為 JPG 匯出功能 🌟
+document.getElementById('export-pdf-btn').addEventListener('click', () => {
+    const scoreElement = document.getElementById('score-wrapper');
+    const originalBackground = scoreElement.style.background;
+    
+    // 設定高品質繪圖參數
+    html2canvas(scoreElement, {
+        scale: 2, // 提高解析度
+        backgroundColor: "#d9dbde", // 確保背景顏色正常
+        scrollY: -window.scrollY // 解決因為捲動造成的錯位
+    }).then(canvas => {
+        // 轉換為 JPG
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        
+        // 觸發下載
+        const link = document.createElement('a');
+        const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
+        link.download = `${songTitle}.jpg`;
+        link.href = imgData;
+        link.click();
+    });
+});
 
 updateClefUI();
