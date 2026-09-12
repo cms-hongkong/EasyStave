@@ -196,12 +196,12 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 強制再推高一格：確保全休止符完美掛在第四線
+// 🌟 完美修正：全休止符精準掛在第四線下方
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
-        return dur === 'w' ? "g/3" : "d/3"; 
+        return dur === 'w' ? "f/3" : "d/3"; 
     } else {
-        return dur === 'w' ? "e/5" : "b/4"; 
+        return dur === 'w' ? "d/5" : "b/4"; 
     }
 }
 
