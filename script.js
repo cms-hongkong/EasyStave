@@ -196,7 +196,7 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 完美修正：全休止符精準掛在第四線下方
+// 🌟 精準鎖定：全休止符(w)掛在第4線下方，其他休止符(h, q, 8)置於第3線
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
         return dur === 'w' ? "f/3" : "d/3"; 
