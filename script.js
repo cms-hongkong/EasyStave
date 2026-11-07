@@ -492,7 +492,7 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
 
 document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
 
-// =================【終極匯出圖片修復代碼 (針對手機端/iOS優化)】=================
+// =================【終極必殺技：長按儲存圖片】=================
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
     const scoreElement = document.getElementById('score-wrapper');
     const appContainer = document.querySelector('.app-container');
@@ -504,14 +504,14 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => {
     const origScoreHt = scoreElement.style.height;
     const origScoreOvf = scoreElement.style.overflow;
 
-    // 2. 解除所有外層限制，讓畫面在底層可以「完全伸展」(避免截斷)
+    // 2. 解除所有外層限制，讓畫面完全展開
     document.body.style.overflow = 'visible';
     appContainer.style.height = 'auto';
     appContainer.style.overflow = 'visible';
     scoreElement.style.height = 'auto';
     scoreElement.style.overflow = 'visible';
 
-    // 3. 確保 SVG 有 xmlns (讓瀏覽器認得它是圖形)
+    // 3. 確保 SVG 有 xmlns
     const svgs = scoreElement.querySelectorAll('svg');
     svgs.forEach(svg => {
         if (!svg.getAttribute('xmlns')) {
@@ -519,55 +519,75 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => {
         }
     });
 
-    // 4. 延遲 300ms 讓手機瀏覽器有足夠時間重繪畫面
+    // 4. 顯示「處理中」的提示，避免使用者以為當機
+    const loadingMsg = document.createElement('div');
+    loadingMsg.innerText = "⏳ 正在產生圖片，請稍候...";
+    loadingMsg.style.cssText = "position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:20px; border-radius:10px; z-index:9999; font-size:18px; font-weight:bold;";
+    document.body.appendChild(loadingMsg);
+
+    // 5. 稍微等 500 毫秒，確保手機把樂譜完全展開後才拍照
     setTimeout(() => {
         html2canvas(scoreElement, {
-            scale: 1.5, // 適中的解析度，不會把手機記憶體撐爆
+            scale: 1.5, 
             backgroundColor: "#d9dbde",
             useCORS: true,
             scrollY: 0,
             windowWidth: document.documentElement.scrollWidth,
-            windowHeight: document.documentElement.scrollHeight
+            windowHeight: scoreElement.scrollHeight + 100
         }).then(canvas => {
-            // 5. 截圖完成，立刻把畫面恢復原狀
+            // 恢復原本的介面排版
             document.body.style.overflow = origBodyOvf;
             appContainer.style.height = origAppHt;
             appContainer.style.overflow = origAppOvf;
             scoreElement.style.height = origScoreHt;
             scoreElement.style.overflow = origScoreOvf;
+            document.body.removeChild(loadingMsg);
 
-            // 6. 改用 Blob (檔案形式) 匯出，突破手機端 Base64 字串長度限制！
-            canvas.toBlob(blob => {
-                if (!blob) {
-                    alert("圖片生成失敗，請稍後再試！");
-                    return;
-                }
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
-                link.download = `${songTitle}.jpg`;
-                link.href = url;
-                
-                // ⚠️ 蘋果 iOS/Safari 必備：必須把 <a> 塞進 DOM 裡面點擊才有效
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // 釋放記憶體
-                window.URL.revokeObjectURL(url);
-            }, 'image/jpeg', 0.95);
+            // 轉成圖片 URL
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+            // ================= 建立全螢幕圖片檢視器 =================
+            const overlay = document.createElement('div');
+            overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; box-sizing:border-box;";
+
+            // 關閉按鈕
+            const closeBtn = document.createElement('button');
+            closeBtn.innerText = "✖ 關閉並返回";
+            closeBtn.style.cssText = "margin-bottom:15px; padding:10px 20px; font-size:16px; font-weight:bold; background:#ff3b30; color:white; border:none; border-radius:8px; cursor:pointer;";
+            closeBtn.onclick = () => document.body.removeChild(overlay);
+
+            // 提示文字
+            const hint = document.createElement('div');
+            hint.innerText = "👇 請「長按下方圖片」然後選擇「儲存圖片」";
+            hint.style.cssText = "color:#ffcc00; font-size:18px; font-weight:bold; margin-bottom:15px; text-align:center;";
+
+            // 裝載圖片的容器 (允許滾動)
+            const imgBox = document.createElement('div');
+            imgBox.style.cssText = "width:100%; max-width:800px; max-height:75vh; overflow-y:auto; border:2px solid white; border-radius:8px; background:white;";
+
+            // 實際圖片
+            const img = document.createElement('img');
+            img.src = imgData;
+            img.style.cssText = "display:block; width:100%; height:auto;";
+
+            imgBox.appendChild(img);
+            overlay.appendChild(closeBtn);
+            overlay.appendChild(hint);
+            overlay.appendChild(imgBox);
+            document.body.appendChild(overlay);
+            // ========================================================
 
         }).catch(err => {
             console.error("匯出圖片失敗:", err);
-            // 發生錯誤也要確保畫面不會壞掉
             document.body.style.overflow = origBodyOvf;
             appContainer.style.height = origAppHt;
             appContainer.style.overflow = origAppOvf;
             scoreElement.style.height = origScoreHt;
             scoreElement.style.overflow = origScoreOvf;
-            alert("發生錯誤！可能是樂譜太長導致手機記憶體不足。");
+            if(document.body.contains(loadingMsg)) document.body.removeChild(loadingMsg);
+            alert("產生圖片失敗！請檢查樂譜是否過長。");
         });
-    }, 300);
+    }, 500);
 });
 // =====================================================================
 
