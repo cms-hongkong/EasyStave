@@ -196,7 +196,6 @@ function buildMeasures(trackData, timeBeats) {
     return measures;
 }
 
-// 🌟 精準鎖定：全休止符(w)掛在第4線下方，其他休止符(h, q, 8)置於第3線
 function getRestKey(clef, dur) {
     if (clef === 'bass') {
         return dur === 'w' ? "f/3" : "d/3"; 
@@ -493,17 +492,26 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
 
 document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
 
-// =================【新的匯出圖片修復代碼】=================
+// =================【終極匯出圖片修復代碼 (針對手機端/iOS優化)】=================
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
     const scoreElement = document.getElementById('score-wrapper');
+    const appContainer = document.querySelector('.app-container');
 
-    // 暫時解除外層容器的滾動與高度限制，讓 html2canvas 能抓取完整高度
-    const originalOverflow = scoreElement.style.overflow;
-    const originalHeight = scoreElement.style.height;
+    // 1. 記錄原始樣式
+    const origBodyOvf = document.body.style.overflow;
+    const origAppHt = appContainer.style.height;
+    const origAppOvf = appContainer.style.overflow;
+    const origScoreHt = scoreElement.style.height;
+    const origScoreOvf = scoreElement.style.overflow;
+
+    // 2. 解除所有外層限制，讓畫面在底層可以「完全伸展」(避免截斷)
+    document.body.style.overflow = 'visible';
+    appContainer.style.height = 'auto';
+    appContainer.style.overflow = 'visible';
+    scoreElement.style.height = 'auto';
     scoreElement.style.overflow = 'visible';
-    scoreElement.style.height = 'max-content';
 
-    // 確保所有 VexFlow 產生的 SVG 具備 xmlns，避免 html2canvas 繪製出空白音符
+    // 3. 確保 SVG 有 xmlns (讓瀏覽器認得它是圖形)
     const svgs = scoreElement.querySelectorAll('svg');
     svgs.forEach(svg => {
         if (!svg.getAttribute('xmlns')) {
@@ -511,36 +519,56 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => {
         }
     });
 
-    // 加入微小延遲 (100ms)，確保瀏覽器完成重繪展開後再進行截圖
+    // 4. 延遲 300ms 讓手機瀏覽器有足夠時間重繪畫面
     setTimeout(() => {
         html2canvas(scoreElement, {
-            scale: 1.5, // 降低放大倍率避免記憶體不足
+            scale: 1.5, // 適中的解析度，不會把手機記憶體撐爆
             backgroundColor: "#d9dbde",
-            useCORS: true, 
+            useCORS: true,
             scrollY: 0,
-            windowWidth: document.documentElement.offsetWidth,
-            windowHeight: scoreElement.scrollHeight + 100 // 確保高度足夠涵蓋所有樂譜
+            windowWidth: document.documentElement.scrollWidth,
+            windowHeight: document.documentElement.scrollHeight
         }).then(canvas => {
-            // 恢復原本的 CSS 介面設定
-            scoreElement.style.overflow = originalOverflow;
-            scoreElement.style.height = originalHeight;
+            // 5. 截圖完成，立刻把畫面恢復原狀
+            document.body.style.overflow = origBodyOvf;
+            appContainer.style.height = origAppHt;
+            appContainer.style.overflow = origAppOvf;
+            scoreElement.style.height = origScoreHt;
+            scoreElement.style.overflow = origScoreOvf;
 
-            // 匯出並下載圖片
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const link = document.createElement('a');
-            const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
-            link.download = `${songTitle}.jpg`;
-            link.href = imgData;
-            link.click();
+            // 6. 改用 Blob (檔案形式) 匯出，突破手機端 Base64 字串長度限制！
+            canvas.toBlob(blob => {
+                if (!blob) {
+                    alert("圖片生成失敗，請稍後再試！");
+                    return;
+                }
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
+                link.download = `${songTitle}.jpg`;
+                link.href = url;
+                
+                // ⚠️ 蘋果 iOS/Safari 必備：必須把 <a> 塞進 DOM 裡面點擊才有效
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 釋放記憶體
+                window.URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.95);
+
         }).catch(err => {
             console.error("匯出圖片失敗:", err);
-            // 發生錯誤時也要恢復 UI
-            scoreElement.style.overflow = originalOverflow;
-            scoreElement.style.height = originalHeight;
-            alert("匯出圖片時發生錯誤！請檢查樂譜長度是否過長。");
+            // 發生錯誤也要確保畫面不會壞掉
+            document.body.style.overflow = origBodyOvf;
+            appContainer.style.height = origAppHt;
+            appContainer.style.overflow = origAppOvf;
+            scoreElement.style.height = origScoreHt;
+            scoreElement.style.overflow = origScoreOvf;
+            alert("發生錯誤！可能是樂譜太長導致手機記憶體不足。");
         });
-    }, 100);
+    }, 300);
 });
-// ========================================================
+// =====================================================================
 
 updateClefUI();
