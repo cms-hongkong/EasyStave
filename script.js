@@ -493,20 +493,54 @@ document.getElementById('play-all-btn').addEventListener('click', async () => {
 
 document.getElementById('stop-btn').addEventListener('click', () => { if (globalSynth) globalSynth.releaseAll(); });
 
+// =================【新的匯出圖片修復代碼】=================
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
     const scoreElement = document.getElementById('score-wrapper');
-    html2canvas(scoreElement, {
-        scale: 2, 
-        backgroundColor: "#d9dbde",
-        scrollY: -window.scrollY 
-    }).then(canvas => {
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const link = document.createElement('a');
-        const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
-        link.download = `${songTitle}.jpg`;
-        link.href = imgData;
-        link.click();
+
+    // 暫時解除外層容器的滾動與高度限制，讓 html2canvas 能抓取完整高度
+    const originalOverflow = scoreElement.style.overflow;
+    const originalHeight = scoreElement.style.height;
+    scoreElement.style.overflow = 'visible';
+    scoreElement.style.height = 'max-content';
+
+    // 確保所有 VexFlow 產生的 SVG 具備 xmlns，避免 html2canvas 繪製出空白音符
+    const svgs = scoreElement.querySelectorAll('svg');
+    svgs.forEach(svg => {
+        if (!svg.getAttribute('xmlns')) {
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        }
     });
+
+    // 加入微小延遲 (100ms)，確保瀏覽器完成重繪展開後再進行截圖
+    setTimeout(() => {
+        html2canvas(scoreElement, {
+            scale: 1.5, // 降低放大倍率避免記憶體不足
+            backgroundColor: "#d9dbde",
+            useCORS: true, 
+            scrollY: 0,
+            windowWidth: document.documentElement.offsetWidth,
+            windowHeight: scoreElement.scrollHeight + 100 // 確保高度足夠涵蓋所有樂譜
+        }).then(canvas => {
+            // 恢復原本的 CSS 介面設定
+            scoreElement.style.overflow = originalOverflow;
+            scoreElement.style.height = originalHeight;
+
+            // 匯出並下載圖片
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const link = document.createElement('a');
+            const songTitle = document.getElementById('song-title').value.trim() || '樂譜';
+            link.download = `${songTitle}.jpg`;
+            link.href = imgData;
+            link.click();
+        }).catch(err => {
+            console.error("匯出圖片失敗:", err);
+            // 發生錯誤時也要恢復 UI
+            scoreElement.style.overflow = originalOverflow;
+            scoreElement.style.height = originalHeight;
+            alert("匯出圖片時發生錯誤！請檢查樂譜長度是否過長。");
+        });
+    }, 100);
 });
+// ========================================================
 
 updateClefUI();
